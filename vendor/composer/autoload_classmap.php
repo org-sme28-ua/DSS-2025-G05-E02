@@ -140,6 +140,7 @@ return array(
     'Database\\Factories\\BilleteraFactory' => $baseDir . '/database/factories/BilleteraFactory.php',
     'Database\\Factories\\ChatFactory' => $baseDir . '/database/factories/ChatFactory.php',
     'Database\\Factories\\JuegoFactory' => $baseDir . '/database/factories/JuegoFactory.php',
+    'Database\\Factories\\MensajeFactory' => $baseDir . '/database/factories/MensajeFactory.php',
     'Database\\Factories\\UserFactory' => $baseDir . '/database/factories/UserFactory.php',
     'Database\\Seeders\\ApuestaSeeder' => $baseDir . '/database/seeders/ApuestaSeeder.php',
     'Database\\Seeders\\BilleteraSeeder' => $baseDir . '/database/seeders/BilleteraSeeder.php',

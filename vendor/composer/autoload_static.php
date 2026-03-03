@@ -665,6 +665,7 @@ class ComposerStaticInitc514d8f7b9fc5970bdd94287905ef584
         'Database\\Factories\\BilleteraFactory' => __DIR__ . '/../..' . '/database/factories/BilleteraFactory.php',
         'Database\\Factories\\ChatFactory' => __DIR__ . '/../..' . '/database/factories/ChatFactory.php',
         'Database\\Factories\\JuegoFactory' => __DIR__ . '/../..' . '/database/factories/JuegoFactory.php',
+        'Database\\Factories\\MensajeFactory' => __DIR__ . '/../..' . '/database/factories/MensajeFactory.php',
         'Database\\Factories\\UserFactory' => __DIR__ . '/../..' . '/database/factories/UserFactory.php',
         'Database\\Seeders\\ApuestaSeeder' => __DIR__ . '/../..' . '/database/seeders/ApuestaSeeder.php',
         'Database\\Seeders\\BilleteraSeeder' => __DIR__ . '/../..' . '/database/seeders/BilleteraSeeder.php',

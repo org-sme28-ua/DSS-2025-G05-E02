@@ -66,3 +66,5 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
 
 ##Adminer Acces: http://localhost/adminer?server=&username=dss&db=dss&table=transaccion
+
+##Ejecutar Seeders: php artisan db:seed (Todo tiene que estar limpio, ejecutar comandos de limpieza)
