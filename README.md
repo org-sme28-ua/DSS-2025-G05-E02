@@ -68,3 +68,5 @@ The Laravel framework is open-sourced software licensed under the [MIT license](
 ##Adminer Acces: http://localhost/adminer?server=&username=dss&db=dss&table=transaccion
 
 ##Ejecutar Seeders: php artisan db:seed (Todo tiene que estar limpio, ejecutar comandos de limpieza)
+
+##Comando pa borrar las tablas y volver a crearlas: php artisan migrate:fresh
