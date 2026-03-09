@@ -60,6 +60,11 @@ class User extends Authenticatable
         return $this->hasMany(Apuesta::class);
     }
 
+    public function chats()
+    {
+        return $this->hasMany(Chat::class);
+    }
+
     public function mensajesEnviados()
     {
         return $this->hasMany(Mensaje::class, 'emisor_id');
@@ -68,5 +73,10 @@ class User extends Authenticatable
     public function mensajesRecibidos()
     {
         return $this->hasMany(Mensaje::class, 'receptor_id');
+    }
+
+    public function mensajes()
+    {
+        return $this->hasMany(Mensaje::class, 'emisor_id');
     }
 }

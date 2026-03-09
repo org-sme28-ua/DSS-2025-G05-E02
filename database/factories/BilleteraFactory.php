@@ -3,21 +3,19 @@
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use App\Models\Billetera;
+use App\Models\User;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Billetera>
- */
 class BilleteraFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
+    protected $model = Billetera::class;
+
     public function definition(): array
     {
         return [
-            //
+            'user_id' => User::factory(),
+            'saldoDisponible' => $this->faker->randomFloat(2, 0, 5000),
+            'moneda' => 'EUR',
         ];
     }
 }

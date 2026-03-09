@@ -22,7 +22,7 @@ class RelacionesComplejasTest extends TestCase
         
         // Usuario crea un chat
         $chat = Chat::factory()->create([
-            'usuario_id' => $usuario->id,
+            'user_id' => $usuario->id,
             'nombre' => 'Chat de Prueba'
         ]);
         
