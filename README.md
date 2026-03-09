@@ -78,3 +78,6 @@ Para falllos satánicos:
 
 
 ##Ejecutar Seeders: php artisan db:seed (Todo tiene que estar limpio, ejecutar comandos de limpieza)
+##Ejecutar Seeders: php artisan db:seed (Todo tiene que estar limpio, ejecutar comandos de limpieza)
+
+##Comando pa borrar las tablas y volver a crearlas: php artisan migrate:fresh
