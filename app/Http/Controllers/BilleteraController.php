@@ -7,17 +7,17 @@ use Illuminate\Http\Request;
 
 class BilleteraController extends Controller
 {
-    public function index()
+    public function listar()
     {
         return Billetera::with('user')->get();
     }
 
-    public function show(Billetera $billetera)
+    public function ver(Billetera $billetera)
     {
         return $billetera->load('user');
     }
 
-    public function store(Request $request)
+    public function crear(Request $request)
     {
         $data = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
@@ -28,7 +28,7 @@ class BilleteraController extends Controller
         return Billetera::create($data);
     }
 
-    public function update(Request $request, Billetera $billetera)
+    public function actualizar(Request $request, Billetera $billetera)
     {
         $data = $request->validate([
             'user_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -41,7 +41,7 @@ class BilleteraController extends Controller
         return $billetera;
     }
 
-    public function destroy(Billetera $billetera)
+    public function eliminar(Billetera $billetera)
     {
         $billetera->delete();
 

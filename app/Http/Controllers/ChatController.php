@@ -7,21 +7,20 @@ use Illuminate\Http\Request;
 
 class ChatController extends Controller
 {
-    public function index()
+    public function listar()
     {
         return Chat::with(['mensajes', 'user'])->get();
     }
 
-    public function show(Chat $chat)
+    public function ver(Chat $chat)
     {
         return $chat->load(['mensajes', 'user']);
     }
 
-    public function store(Request $request)
+    public function crear(Request $request)
     {
         $data = $request->validate([
             'nombre' => ['required', 'string', 'max:255'],
-            'fechaCreacion' => ['required', 'date'],
             'activo' => ['required', 'boolean'],
             'user_id' => ['required', 'integer', 'exists:users,id'],
         ]);
@@ -29,11 +28,10 @@ class ChatController extends Controller
         return Chat::create($data);
     }
 
-    public function update(Request $request, Chat $chat)
+    public function actualizar(Request $request, Chat $chat)
     {
         $data = $request->validate([
             'nombre' => ['sometimes', 'string', 'max:255'],
-            'fechaCreacion' => ['sometimes', 'date'],
             'activo' => ['sometimes', 'boolean'],
             'user_id' => ['sometimes', 'integer', 'exists:users,id'],
         ]);
@@ -43,7 +41,7 @@ class ChatController extends Controller
         return $chat;
     }
 
-    public function destroy(Chat $chat)
+    public function eliminar(Chat $chat)
     {
         $chat->delete();
 

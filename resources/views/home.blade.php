@@ -37,6 +37,7 @@
             <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div class="bg-[#803137] p-3 rounded-lg shadow-lg w-full md:w-auto">
                     <h2 class="text-2xl font-bold">Bienvenido, Usuario123</h2>
+                    <p class="text-sm text-slate-300">Notificaciones: <strong>{{ App\Models\Notificacion::where('user_id', 1)->where('leido', false)->count() }}</strong></p>
                 </div>
                 <div class="relative w-full md:w-1/2">
                     <input type="text" placeholder="Buscar..." class="w-full rounded-full py-2 pl-4 pr-10 text-[#7f2c33] font-medium" />

@@ -22,6 +22,9 @@ class DatabaseSeeder extends Seeder
             ApuestaSeeder::class,
             ChatSeeder::class,
             MensajeSeeder::class,
+            NotificacionSeeder::class,
+            RankingSeeder::class,
+            SettingSeeder::class,
         ]);
     }
 }

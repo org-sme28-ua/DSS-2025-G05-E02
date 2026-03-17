@@ -8,17 +8,17 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function index()
+    public function listar()
     {
         return User::with(['billetera', 'apuestas', 'chats', 'mensajesEnviados', 'mensajesRecibidos'])->get();
     }
 
-    public function show(User $user)
+    public function ver(User $user)
     {
         return $user->load(['billetera', 'apuestas', 'chats', 'mensajesEnviados', 'mensajesRecibidos']);
     }
 
-    public function store(Request $request)
+    public function crear(Request $request)
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -33,7 +33,7 @@ class UserController extends Controller
         return User::create($data);
     }
 
-    public function update(Request $request, User $user)
+    public function actualizar(Request $request, User $user)
     {
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
@@ -52,7 +52,7 @@ class UserController extends Controller
         return $user;
     }
 
-    public function destroy(User $user)
+    public function eliminar(User $user)
     {
         $user->delete();
 

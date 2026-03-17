@@ -7,17 +7,17 @@ use Illuminate\Http\Request;
 
 class JuegoController extends Controller
 {
-    public function index()
+    public function listar()
     {
         return Juego::with('apuestas')->get();
     }
 
-    public function show(Juego $juego)
+    public function ver(Juego $juego)
     {
         return $juego->load('apuestas');
     }
 
-    public function store(Request $request)
+    public function crear(Request $request)
     {
         $data = $request->validate([
             'nombre' => ['required', 'string', 'max:255'],
@@ -28,7 +28,7 @@ class JuegoController extends Controller
         return Juego::create($data);
     }
 
-    public function update(Request $request, Juego $juego)
+    public function actualizar(Request $request, Juego $juego)
     {
         $data = $request->validate([
             'nombre' => ['sometimes', 'string', 'max:255'],
@@ -41,7 +41,7 @@ class JuegoController extends Controller
         return $juego;
     }
 
-    public function destroy(Juego $juego)
+    public function eliminar(Juego $juego)
     {
         $juego->delete();
 

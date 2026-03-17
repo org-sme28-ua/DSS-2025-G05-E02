@@ -7,17 +7,17 @@ use Illuminate\Http\Request;
 
 class MensajeController extends Controller
 {
-    public function index()
+    public function listar()
     {
         return Mensaje::with(['chat', 'emisor', 'receptor'])->get();
     }
 
-    public function show(Mensaje $mensaje)
+    public function ver(Mensaje $mensaje)
     {
         return $mensaje->load(['chat', 'emisor', 'receptor']);
     }
 
-    public function store(Request $request)
+    public function crear(Request $request)
     {
         $data = $request->validate([
             'chat_id' => ['required', 'integer', 'exists:chats,id'],
@@ -31,7 +31,7 @@ class MensajeController extends Controller
         return Mensaje::create($data);
     }
 
-    public function update(Request $request, Mensaje $mensaje)
+    public function actualizar(Request $request, Mensaje $mensaje)
     {
         $data = $request->validate([
             'chat_id' => ['sometimes', 'integer', 'exists:chats,id'],
@@ -47,7 +47,7 @@ class MensajeController extends Controller
         return $mensaje;
     }
 
-    public function destroy(Mensaje $mensaje)
+    public function eliminar(Mensaje $mensaje)
     {
         $mensaje->delete();
 

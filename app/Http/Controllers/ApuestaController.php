@@ -7,17 +7,17 @@ use Illuminate\Http\Request;
 
 class ApuestaController extends Controller
 {
-    public function index()
+    public function listar()
     {
         return Apuesta::with(['user', 'juego'])->get();
     }
 
-    public function show(Apuesta $apuesta)
+    public function ver(Apuesta $apuesta)
     {
         return $apuesta->load(['user', 'juego']);
     }
 
-    public function store(Request $request)
+    public function crear(Request $request)
     {
         $data = $request->validate([
             'user_id' => ['required', 'integer', 'exists:users,id'],
@@ -31,7 +31,7 @@ class ApuestaController extends Controller
         return Apuesta::create($data);
     }
 
-    public function update(Request $request, Apuesta $apuesta)
+    public function actualizar(Request $request, Apuesta $apuesta)
     {
         $data = $request->validate([
             'user_id' => ['sometimes', 'integer', 'exists:users,id'],
@@ -47,7 +47,7 @@ class ApuestaController extends Controller
         return $apuesta;
     }
 
-    public function destroy(Apuesta $apuesta)
+    public function eliminar(Apuesta $apuesta)
     {
         $apuesta->delete();
 
