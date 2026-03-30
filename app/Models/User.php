@@ -129,7 +129,7 @@ class User extends Authenticatable
             $chatId = $chat->id;
         }
 
-        return Mensaje::create([
+        $mensaje = Mensaje::create([
             'chat_id' => $chatId,
             'emisor_id' => $this->id,
             'receptor_id' => $receptor->id,
@@ -137,6 +137,14 @@ class User extends Authenticatable
             'fechaHora' => now(),
             'editado' => false,
         ]);
+        // Crear notificación para el receptor
+        \App\Models\Notificacion::crearNotificacion(
+            $receptor->id,
+            'Nuevo mensaje recibido',
+            "Has recibido un nuevo mensaje de {$this->name}.",
+            'mensaje'
+        );
+        return $mensaje;
     }
 
     // --- FUNCIONES EXTRA ---

@@ -58,24 +58,39 @@ class Apuesta extends Model
         return 0;
     }
 
-    // Lógica para liquidar victoria y actualizar billetera, puntos, ranking, notificación
-    public function liquidarVictoria()
+    // Lógica para liquidar la apuesta con resultado
+    public function liquidar($resultado)
     {
-        if ($this->estado !== 'ganada') {
-            $this->estado = 'ganada';
-            $this->save();
+        if (!in_array($resultado, ['ganada', 'perdida'])) {
+            throw new \InvalidArgumentException("Resultado inválido para liquidar: $resultado");
         }
-        // Calcular ganancia
-        $ganancia = $this->monto * $this->cuota;
+
+        $this->estado = $resultado;
+        $this->save();
+
         $user = $this->user;
-        // Añadir dinero a la billetera
-        $user->billetera->saldo += $ganancia;
-        $user->billetera->save();
-        // Añadir puntos de fidelidad (puedes establecer la fórmula deseada)
-        $puntos = intval($ganancia / 10);
-        $user->sumarPuntosFidelidad($puntos);
-        // Actualizar ranking
-        \App\Models\Ranking::actualizarRankingUsuario($user, $ganancia, $puntos);
-        // (Opcional: lanzar evento/crear notificación si sube de nivel o ranking)
+
+        if ($resultado === 'ganada') {
+            $ganancia = $this->monto * $this->cuota;
+            // Añadir dinero a billetera
+            $user->billetera->saldo += $ganancia;
+            $user->billetera->save();
+            // Añadir puntos de fidelidad
+            $puntos = intval($ganancia / 10);
+            $user->sumarPuntosFidelidad($puntos);
+            // Actualizar ranking
+            \App\Models\Ranking::actualizarRankingUsuario($user, $ganancia, $puntos);
+            $mensaje = "Tu apuesta fue ganada! Ganaste {$ganancia} y {$puntos} puntos de fidelidad.";
+        } else {
+            $mensaje = "Tu apuesta fue perdida. Mejor suerte la próxima vez.";
+        }
+
+        // Crear notificación con resultado
+        \App\Models\Notificacion::crearNotificacion(
+            $user->id,
+            "Resultado de apuesta",
+            $mensaje,
+            'info'
+        );
     }
 }
