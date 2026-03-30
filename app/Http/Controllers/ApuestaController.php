@@ -74,4 +74,13 @@ class ApuestaController extends Controller
 
         return response()->json(null, 204);
     }
+
+    public function liquidar(Request $request, Apuesta $apuesta)
+    {
+        $data = $request->validate([
+            'resultado' => ['required', 'in:ganada,perdida']
+        ]);
+        $apuesta->liquidar($data['resultado']);
+        return response()->json(['message' => "Apuesta liquidada como {$data['resultado']}."], 200);
+    }
 }
