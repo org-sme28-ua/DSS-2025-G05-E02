@@ -2,52 +2,75 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-
 use App\Models\Setting;
+use Illuminate\Http\Request;
 
 class SettingController extends Controller
 {
-    public function listar()
+    public function getData(Request $request)
     {
-        return Setting::where('activo', true)->get();
+        $query = Setting::query();
+        
+        if ($request->has('search') && $request->search) {
+            $query->where('clave', 'like', '%' . $request->search . '%')
+                  ->orWhere('descripcion', 'like', '%' . $request->search . '%');
+        }
+        
+        if ($request->has('activo') && $request->activo !== '') {
+            $query->where('activo', $request->activo === 'true');
+        }
+        
+        $sort = $request->get('sort', 'id');
+        $dir = $request->get('dir', 'asc');
+        $query->orderBy($sort, $dir);
+        
+        $perPage = $request->get('per', 6);
+        $settings = $query->paginate($perPage);
+        
+        return response()->json($settings);
     }
-
-    public function ver(Setting $setting)
+    
+    public function show($id)
     {
-        return $setting;
+        $setting = Setting::findOrFail($id);
+        return response()->json($setting);
     }
-
-    public function crear(Request $request)
+    
+    public function store(Request $request)
     {
         $data = $request->validate([
-            'clave' => ['required', 'string', 'max:100', 'unique:settings,clave'],
-            'valor' => ['required', 'string'],
-            'descripcion' => ['sometimes', 'string'],
-            'activo' => ['sometimes', 'boolean'],
+            'clave' => 'required|string|unique:settings',
+            'valor' => 'required|integer',
+            'descripcion' => 'nullable|string',
+            'activo' => 'boolean',
         ]);
-
-        return Setting::create($data);
+        
+        $setting = Setting::create($data);
+        
+        return response()->json(['success' => true, 'data' => $setting, 'message' => 'Configuración creada correctamente'], 201);
     }
-
-    public function actualizar(Request $request, Setting $setting)
+    
+    public function update(Request $request, $id)
     {
+        $setting = Setting::findOrFail($id);
+        
         $data = $request->validate([
-            'clave' => ['sometimes', 'string', 'max:100', 'unique:settings,clave,'.$setting->id],
-            'valor' => ['sometimes', 'string'],
-            'descripcion' => ['sometimes', 'string'],
-            'activo' => ['sometimes', 'boolean'],
+            'clave' => 'required|string|unique:settings,clave,' . $id,
+            'valor' => 'required|integer',
+            'descripcion' => 'nullable|string',
+            'activo' => 'boolean',
         ]);
-
+        
         $setting->update($data);
-
-        return $setting;
+        
+        return response()->json(['success' => true, 'data' => $setting, 'message' => 'Configuración actualizada correctamente']);
     }
-
-    public function eliminar(Setting $setting)
+    
+    public function destroy($id)
     {
+        $setting = Setting::findOrFail($id);
         $setting->delete();
-
-        return response()->json(null, 204);
+        
+        return response()->json(['success' => true, 'message' => 'Configuración eliminada correctamente']);
     }
 }

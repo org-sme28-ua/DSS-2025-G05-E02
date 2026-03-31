@@ -2,52 +2,76 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-
 use App\Models\Ranking;
+use Illuminate\Http\Request;
 
 class RankingController extends Controller
 {
-    public function listar()
+    public function getData(Request $request)
     {
-        return Ranking::with('user')->orderBy('posicion', 'asc')->get();
+        $query = Ranking::query();
+        
+        if ($request->has('search') && $request->search) {
+            $query->where('usuario', 'like', '%' . $request->search . '%');
+        }
+        
+        if ($request->has('activo') && $request->activo !== '') {
+            $query->where('activo', $request->activo === 'true');
+        }
+        
+        $sort = $request->get('sort', 'posicion');
+        $dir = $request->get('dir', 'asc');
+        $query->orderBy($sort, $dir);
+        
+        $perPage = $request->get('per', 6);
+        $rankings = $query->paginate($perPage);
+        
+        return response()->json($rankings);
     }
-
-    public function ver(Ranking $ranking)
+    
+    public function show($id)
     {
-        return $ranking->load('user');
+        $ranking = Ranking::findOrFail($id);
+        return response()->json($ranking);
     }
-
-    public function crear(Request $request)
+    
+    public function store(Request $request)
     {
         $data = $request->validate([
-            'user_id' => ['required', 'integer', 'exists:users,id'],
-            'posicion' => ['required', 'integer', 'min:1'],
-            'puntos' => ['required', 'numeric', 'min:0'],
-            'total_ganado' => ['required', 'numeric', 'min:0'],
+            'usuario' => 'required|string|max:255|unique:rankings',
+            'posicion' => 'required|integer|min:1',
+            'puntos' => 'required|integer|min:0',
+            'totalGanado' => 'required|numeric|min:0',
+            'activo' => 'boolean',
         ]);
-
-        return Ranking::create($data);
+        
+        $ranking = Ranking::create($data);
+        
+        return response()->json(['success' => true, 'data' => $ranking, 'message' => 'Ranking creado correctamente'], 201);
     }
-
-    public function actualizar(Request $request, Ranking $ranking)
+    
+    public function update(Request $request, $id)
     {
+        $ranking = Ranking::findOrFail($id);
+        
         $data = $request->validate([
-            'user_id' => ['sometimes', 'integer', 'exists:users,id'],
-            'posicion' => ['sometimes', 'integer', 'min:1'],
-            'puntos' => ['sometimes', 'numeric', 'min:0'],
-            'total_ganado' => ['sometimes', 'numeric', 'min:0'],
+            'usuario' => 'sometimes|string|max:255|unique:rankings,usuario,' . $id,
+            'posicion' => 'sometimes|integer|min:1',
+            'puntos' => 'sometimes|integer|min:0',
+            'totalGanado' => 'sometimes|numeric|min:0',
+            'activo' => 'boolean',
         ]);
-
+        
         $ranking->update($data);
-
-        return $ranking;
+        
+        return response()->json(['success' => true, 'data' => $ranking, 'message' => 'Ranking actualizado correctamente']);
     }
-
-    public function eliminar(Ranking $ranking)
+    
+    public function destroy($id)
     {
+        $ranking = Ranking::findOrFail($id);
         $ranking->delete();
-
-        return response()->json(null, 204);
+        
+        return response()->json(['success' => true, 'message' => 'Ranking eliminado correctamente']);
     }
 }

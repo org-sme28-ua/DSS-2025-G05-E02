@@ -7,44 +7,67 @@ use Illuminate\Http\Request;
 
 class ChatController extends Controller
 {
-    public function listar()
+    public function getData(Request $request)
     {
-        return Chat::with(['mensajes', 'user'])->get();
+        $query = Chat::query();
+        
+        if ($request->has('search') && $request->search) {
+            $query->where('nombre', 'like', '%' . $request->search . '%');
+        }
+        
+        if ($request->has('activo') && $request->activo !== '') {
+            $query->where('activo', $request->activo === 'true');
+        }
+        
+        $sort = $request->get('sort', 'id');
+        $dir = $request->get('dir', 'asc');
+        $query->orderBy($sort, $dir);
+        
+        $perPage = $request->get('per', 6);
+        $chats = $query->paginate($perPage);
+        
+        return response()->json($chats);
     }
-
-    public function ver(Chat $chat)
+    
+    public function show($id)
     {
-        return $chat->load(['mensajes', 'user']);
+        $chat = Chat::findOrFail($id);
+        return response()->json($chat);
     }
-
-    public function crear(Request $request)
+    
+    public function store(Request $request)
     {
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:255'],
-            'activo' => ['required', 'boolean'],
-            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'nombre' => 'required|string|max:255|unique:chats',
+            'fechaCreacion' => 'required|date',
+            'activo' => 'boolean',
         ]);
-
-        return Chat::create($data);
+        
+        $chat = Chat::create($data);
+        
+        return response()->json(['success' => true, 'data' => $chat, 'message' => 'Chat creado correctamente'], 201);
     }
-
-    public function actualizar(Request $request, Chat $chat)
+    
+    public function update(Request $request, $id)
     {
+        $chat = Chat::findOrFail($id);
+        
         $data = $request->validate([
-            'nombre' => ['sometimes', 'string', 'max:255'],
-            'activo' => ['sometimes', 'boolean'],
-            'user_id' => ['sometimes', 'integer', 'exists:users,id'],
+            'nombre' => 'sometimes|string|max:255|unique:chats,nombre,' . $id,
+            'fechaCreacion' => 'sometimes|date',
+            'activo' => 'boolean',
         ]);
-
+        
         $chat->update($data);
-
-        return $chat;
+        
+        return response()->json(['success' => true, 'data' => $chat, 'message' => 'Chat actualizado correctamente']);
     }
-
-    public function eliminar(Chat $chat)
+    
+    public function destroy($id)
     {
+        $chat = Chat::findOrFail($id);
         $chat->delete();
-
-        return response()->json(null, 204);
+        
+        return response()->json(['success' => true, 'message' => 'Chat eliminado correctamente']);
     }
 }

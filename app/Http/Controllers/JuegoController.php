@@ -7,44 +7,86 @@ use Illuminate\Http\Request;
 
 class JuegoController extends Controller
 {
-    public function listar()
+    /**
+     * Muestra la lista de juegos con filtros y paginación.
+     */
+    public function index(Request $request)
     {
-        return Juego::with('apuestas')->get();
+        // 1. Recoger los datos de la base de datos
+        $juegos = \App\Models\Juego::paginate(10);
+
+        // 2. IMPORTANTE: Devolver la VISTA, no un JSON
+        // Si devuelves response()->json(), verás solo texto.
+        // Si devuelves la vista, verás tu diseño con la tabla.
+        return view('admin.juegos.index', compact('juegos'));
     }
 
-    public function ver(Juego $juego)
+    /**
+     * Muestra el formulario para crear un nuevo juego.
+     */
+    public function create()
     {
-        return $juego->load('apuestas');
+        return view('admin.juegos.create');
     }
 
-    public function crear(Request $request)
+    /**
+     * Guarda un nuevo juego en la base de datos.
+     */
+    public function store(Request $request)
     {
         $data = $request->validate([
-            'nombre' => ['required', 'string', 'max:255'],
-            'categoria' => ['required', 'string', 'max:100'],
-            'estado' => ['required', 'string', 'in:activo,inactivo,pausado'],
+            'nombre'    => 'required|string|max:255|unique:juegos',
+            'categoria' => 'required|string|in:casino,deportes,virtual',
+            'estado'    => 'required|string|in:abierta,cerrada,en_juego',
         ]);
-
-        return Juego::create($data);
+        
+        Juego::create($data);
+        
+        // REDIRECCIÓN CON MENSAJE DE ÉXITO
+        return redirect()->route('juegos.index')->with('success', 'Juego creado correctamente.');
     }
 
-    public function actualizar(Request $request, Juego $juego)
+    /**
+     * Muestra un juego específico (opcional en admin, suele usarse edit).
+     */
+    public function show(Juego $juego)
+    {
+        return view('admin.juegos.show', compact('juego'));
+    }
+
+    /**
+     * Muestra el formulario para editar un juego existente.
+     */
+    public function edit(Juego $juego)
+    {
+        return view('admin.juegos.edit', compact('juego'));
+    }
+
+    /**
+     * Actualiza el juego en la base de datos.
+     */
+    public function update(Request $request, Juego $juego)
     {
         $data = $request->validate([
-            'nombre' => ['sometimes', 'string', 'max:255'],
-            'categoria' => ['sometimes', 'string', 'max:100'],
-            'estado' => ['sometimes', 'string', 'in:activo,inactivo,pausado'],
+            'nombre'    => 'sometimes|string|max:255|unique:juegos,nombre,' . $juego->id,
+            'categoria' => 'sometimes|string|in:casino,deportes,virtual',
+            'estado'    => 'sometimes|string|in:abierta,cerrada,en_juego',
         ]);
-
+        
         $juego->update($data);
-
-        return $juego;
+        
+        // REDIRECCIÓN CON MENSAJE DE ÉXITO
+        return redirect()->route('juegos.index')->with('success', 'Juego actualizado correctamente.');
     }
 
-    public function eliminar(Juego $juego)
+    /**
+     * Elimina un juego de la base de datos.
+     */
+    public function destroy(Juego $juego)
     {
         $juego->delete();
-
-        return response()->json(null, 204);
+        
+        // REDIRECCIÓN CON MENSAJE DE ÉXITO
+        return redirect()->route('juegos.index')->with('success', 'Juego eliminado correctamente.');
     }
 }

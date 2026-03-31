@@ -8,9 +8,31 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function listar()
+    public function getData(Request $request)
     {
-        return User::with(['billetera', 'apuestas', 'chats', 'mensajesEnviados', 'mensajesRecibidos'])->get();
+        $query = User::query();
+        
+        // Búsqueda por nombre o email
+        if ($request->has('search') && $request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%')
+                ->orWhere('email', 'like', '%' . $request->search . '%');
+        }
+        
+        // Filtro por Nivel VIP
+        if ($request->has('nivel_vip') && $request->nivel_vip !== '') {
+            $query->where('nivel_vip', $request->nivel_vip);
+        }
+        
+        // Ordenamiento
+        $sort = $request->get('sort', 'id');
+        $dir = $request->get('dir', 'asc');
+        $query->orderBy($sort, $dir);
+        
+        // Paginación
+        $perPage = $request->get('per', 6);
+        $usuarios = $query->paginate($perPage);
+        
+        return response()->json($usuarios);
     }
 
     public function amigos(User $user)
@@ -42,36 +64,68 @@ class UserController extends Controller
 
     public function crear(Request $request)
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:6'],
-            'puntos_fidelidad' => ['sometimes', 'integer', 'min:0'],
-            'nivel_vip' => ['sometimes', 'integer', 'min:0'],
-        ]);
+        try {
+            $data = $request->validate([
+                'name' => ['required', 'string', 'max:255'],
+                'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+                'password' => ['required', 'string', 'min:6'],
+                'puntos_fidelidad' => ['sometimes', 'integer', 'min:0'],
+                'nivel_vip' => ['sometimes', 'integer', 'min:0'],
+            ]);
 
-        $data['password'] = Hash::make($data['password']);
+            $data['password'] = Hash::make($data['password']);
 
-        return User::create($data);
+            $user = User::create($data);
+
+            // Creamos la billetera básica asociada
+            $user->billetera()->create(['saldo' => 0]); 
+
+            return response()->json([
+                'success' => true, 
+                'data' => $user, 
+                'message' => 'Usuario creado correctamente'
+            ], 201);
+
+        } catch (\Exception $e) {
+            // Esto capturará cualquier error fatal y te lo enviará al frontend
+            return response()->json([
+                'success' => false, 
+                'message' => 'Error del servidor: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function actualizar(Request $request, User $user)
     {
-        $data = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'string', 'email', 'max:255', 'unique:users,email,'.$user->id],
-            'password' => ['sometimes', 'string', 'min:6'],
-            'puntos_fidelidad' => ['sometimes', 'integer', 'min:0'],
-            'nivel_vip' => ['sometimes', 'integer', 'min:0'],
-        ]);
+        try {
+            $data = $request->validate([
+                'name' => ['sometimes', 'string', 'max:255'],
+                'email' => ['sometimes', 'string', 'email', 'max:255', 'unique:users,email,'.$user->id],
+                'password' => ['nullable', 'string', 'min:6'],
+                'puntos_fidelidad' => ['sometimes', 'integer', 'min:0'],
+                'nivel_vip' => ['sometimes', 'integer', 'min:0'],
+            ]);
 
-        if (isset($data['password'])) {
-            $data['password'] = Hash::make($data['password']);
+            if (!empty($data['password'])) {
+                $data['password'] = Hash::make($data['password']);
+            } else {
+                unset($data['password']);
+            }
+
+            $user->update($data);
+
+            return response()->json([
+                'success' => true, 
+                'data' => $user, 
+                'message' => 'Usuario actualizado correctamente'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'Error del servidor: ' . $e->getMessage()
+            ], 500);
         }
-
-        $user->update($data);
-
-        return $user;
     }
 
     public function eliminar(User $user)

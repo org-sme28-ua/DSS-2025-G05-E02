@@ -7,80 +7,80 @@ use Illuminate\Http\Request;
 
 class ApuestaController extends Controller
 {
-    public function listar()
+    public function getData(Request $request)
     {
-        return Apuesta::with(['user', 'juego'])->get();
-    }
-
-    public function apostar(Request $request)
-    {
-        $data = $request->validate([
-            'user_id' => ['required', 'integer', 'exists:users,id'],
-            'juego_id' => ['required', 'integer', 'exists:juegos,id'],
-            'monto' => ['required', 'numeric', 'min:0.01'],
-            'cuota' => ['required', 'numeric', 'min:1']
-        ]);
-
-        $user = \App\Models\User::findOrFail($data['user_id']);
-
-        // Validar saldo suficiente antes
-        if ($user->billetera->saldo < $data['monto']) {
-            return response()->json(['message' => 'Saldo insuficiente en la billetera.'], 422);
+        // Traemos las relaciones para obtener los nombres en el frontend
+        $query = Apuesta::with(['user', 'juego']);
+        
+        // Búsqueda en tablas relacionadas
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->whereHas('user', function($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%');
+            })->orWhereHas('juego', function($q) use ($search) {
+                $q->where('nombre', 'like', '%' . $search . '%');
+            });
         }
-
-        $apuesta = $user->apostar($data['juego_id'], $data['monto'], $data['cuota']);
-
-        return response()->json($apuesta, 201);
+        
+        if ($request->has('estado') && $request->estado !== '') {
+            $query->where('estado', $request->estado);
+        }
+        
+        $sort = $request->get('sort', 'id');
+        $dir = $request->get('dir', 'asc');
+        $query->orderBy($sort, $dir);
+        
+        $perPage = $request->get('per', 6);
+        $apuestas = $query->paginate($perPage);
+        
+        return response()->json($apuestas);
     }
-
-    public function ver(Apuesta $apuesta)
+    
+    public function show($id)
     {
-        return $apuesta->load(['user', 'juego']);
+        $apuesta = Apuesta::findOrFail($id);
+        return response()->json($apuesta);
     }
-
-    public function crear(Request $request)
-    {
-        $data = $request->validate([
-            'user_id' => ['required', 'integer', 'exists:users,id'],
-            'juego_id' => ['required', 'integer', 'exists:juegos,id'],
-            'monto' => ['required', 'numeric', 'min:0'],
-            'cuota' => ['required', 'numeric', 'min:0'],
-            'estado' => ['required', 'string', 'max:50'],
-            'fecha' => ['required', 'date'],
-        ]);
-
-        return Apuesta::create($data);
-    }
-
-    public function actualizar(Request $request, Apuesta $apuesta)
+    
+    public function store(Request $request)
     {
         $data = $request->validate([
-            'user_id' => ['sometimes', 'integer', 'exists:users,id'],
-            'juego_id' => ['sometimes', 'integer', 'exists:juegos,id'],
-            'monto' => ['sometimes', 'numeric', 'min:0'],
-            'cuota' => ['sometimes', 'numeric', 'min:0'],
-            'estado' => ['sometimes', 'string', 'max:50'],
-            'fecha' => ['sometimes', 'date'],
+            'user_id' => 'required|exists:users,id',
+            'juego_id' => 'required|exists:juegos,id',
+            'monto' => 'required|numeric|min:0.01',
+            'cuota' => 'required|numeric|min:1',
+            'estado' => 'required|string|in:pendiente,ganada,perdida',
+            'fecha' => 'required|date',
         ]);
-
+        
+        $apuesta = Apuesta::create($data);
+        
+        return response()->json(['success' => true, 'data' => $apuesta, 'message' => 'Apuesta creada correctamente'], 201);
+    }
+    
+    public function update(Request $request, $id)
+    {
+        $apuesta = Apuesta::findOrFail($id);
+        
+        $data = $request->validate([
+            'user_id' => 'sometimes|exists:users,id',
+            'juego_id' => 'sometimes|exists:juegos,id',
+            'monto' => 'sometimes|numeric|min:0.01',
+            'cuota' => 'sometimes|numeric|min:1',
+            'estado' => 'sometimes|string|in:pendiente,ganada,perdida',
+            'fecha' => 'sometimes|date',
+        ]);
+        
         $apuesta->update($data);
-
-        return $apuesta;
+        
+        return response()->json(['success' => true, 'data' => $apuesta, 'message' => 'Apuesta actualizada correctamente']);
     }
-
-    public function eliminar(Apuesta $apuesta)
+    
+    public function destroy($id)
     {
+        $apuesta = Apuesta::findOrFail($id);
         $apuesta->delete();
-
-        return response()->json(null, 204);
-    }
-
-    public function liquidar(Request $request, Apuesta $apuesta)
-    {
-        $data = $request->validate([
-            'resultado' => ['required', 'in:ganada,perdida']
-        ]);
-        $apuesta->liquidar($data['resultado']);
-        return response()->json(['message' => "Apuesta liquidada como {$data['resultado']}."], 200);
+        
+        return response()->json(['success' => true, 'message' => 'Apuesta eliminada correctamente']);
     }
 }
