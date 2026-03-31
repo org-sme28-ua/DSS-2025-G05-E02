@@ -13,6 +13,28 @@ class UserController extends Controller
         return User::with(['billetera', 'apuestas', 'chats', 'mensajesEnviados', 'mensajesRecibidos'])->get();
     }
 
+    public function amigos(User $user)
+    {
+        return $user->amigos()->get();
+    }
+
+    public function agregarAmigo(Request $request, User $user)
+    {
+        $otroId = $request->validate(['friend_id' => 'required|exists:users,id'])['friend_id'];
+        if ($user->amigos()->where('friend_id', $otroId)->exists()) {
+            return response()->json(['message' => 'Ya son amigos.'], 409);
+        }
+        $user->amigos()->attach($otroId);
+        return response()->json(['message' => 'Amigo agregado exitosamente.']);
+    }
+
+    public function quitarAmigo(Request $request, User $user)
+    {
+        $otroId = $request->validate(['friend_id' => 'required|exists:users,id'])['friend_id'];
+        $user->amigos()->detach($otroId);
+        return response()->json(['message' => 'Amigo eliminado exitosamente.']);
+    }
+
     public function ver(User $user)
     {
         return $user->load(['billetera', 'apuestas', 'chats', 'mensajesEnviados', 'mensajesRecibidos']);

@@ -22,4 +22,16 @@ class Notificacion extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public static function crearNotificacion($userId, $titulo, $mensaje, $tipo = 'info')
+    {
+        return self::create([
+            'user_id' => $userId,
+            'tipo' => $tipo,
+            'titulo' => $titulo,
+            'mensaje' => $mensaje,
+            'leido' => false,
+            'fecha' => now(),
+        ]);
+    }
 }

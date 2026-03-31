@@ -12,6 +12,24 @@ class MensajeController extends Controller
         return Mensaje::with(['chat', 'emisor', 'receptor'])->get();
     }
 
+    public function enviarMensaje(Request $request)
+    {
+        $data = $request->validate([
+            'emisor_id' => ['required', 'exists:users,id'],
+            'receptor_id' => ['required', 'exists:users,id'],
+            'contenido' => ['required', 'string'],
+            'chat_id' => ['sometimes', 'nullable', 'integer', 'exists:chats,id'],
+        ]);
+
+        $emisor = \App\Models\User::findOrFail($data['emisor_id']);
+        $receptor = \App\Models\User::findOrFail($data['receptor_id']);
+        $chatId = $data['chat_id'] ?? null;
+
+        $mensaje = $emisor->enviarMensaje($receptor, $data['contenido'], $chatId);
+
+        return response()->json($mensaje, 201);
+    }
+
     public function ver(Mensaje $mensaje)
     {
         return $mensaje->load(['chat', 'emisor', 'receptor']);
