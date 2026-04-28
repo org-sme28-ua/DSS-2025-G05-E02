@@ -7,68 +7,72 @@ use Illuminate\Http\Request;
 
 class MensajeController extends Controller
 {
-    public function listar()
+    public function getData(Request $request)
     {
-        return Mensaje::with(['chat', 'emisor', 'receptor'])->get();
+        $query = Mensaje::query();
+        
+        if ($request->has('search') && $request->search) {
+            $query->where('contenido', 'like', '%' . $request->search . '%')
+                  ->orWhere('emisor', 'like', '%' . $request->search . '%');
+        }
+        
+        if ($request->has('editado') && $request->editado !== '') {
+            $query->where('editado', $request->editado === 'true');
+        }
+        
+        $sort = $request->get('sort', 'id');
+        $dir = $request->get('dir', 'asc');
+        $query->orderBy($sort, $dir);
+        
+        $perPage = $request->get('per', 6);
+        $mensajes = $query->paginate($perPage);
+        
+        return response()->json($mensajes);
     }
-
-    public function enviarMensaje(Request $request)
+    
+    public function show($id)
+    {
+        $mensaje = Mensaje::findOrFail($id);
+        return response()->json($mensaje);
+    }
+    
+    public function store(Request $request)
     {
         $data = $request->validate([
-            'emisor_id' => ['required', 'exists:users,id'],
-            'receptor_id' => ['required', 'exists:users,id'],
-            'contenido' => ['required', 'string'],
-            'chat_id' => ['sometimes', 'nullable', 'integer', 'exists:chats,id'],
+            'chat' => 'required|string|max:255',
+            'emisor' => 'required|string|max:255',
+            'receptor' => 'required|string|max:255',
+            'contenido' => 'required|string',
+            'editado' => 'boolean',
         ]);
-
-        $emisor = \App\Models\User::findOrFail($data['emisor_id']);
-        $receptor = \App\Models\User::findOrFail($data['receptor_id']);
-        $chatId = $data['chat_id'] ?? null;
-
-        $mensaje = $emisor->enviarMensaje($receptor, $data['contenido'], $chatId);
-
-        return response()->json($mensaje, 201);
+        
+        $mensaje = Mensaje::create($data);
+        
+        return response()->json(['success' => true, 'data' => $mensaje, 'message' => 'Mensaje creado correctamente'], 201);
     }
-
-    public function ver(Mensaje $mensaje)
+    
+    public function update(Request $request, $id)
     {
-        return $mensaje->load(['chat', 'emisor', 'receptor']);
-    }
-
-    public function crear(Request $request)
-    {
+        $mensaje = Mensaje::findOrFail($id);
+        
         $data = $request->validate([
-            'chat_id' => ['required', 'integer', 'exists:chats,id'],
-            'emisor_id' => ['required', 'integer', 'exists:users,id'],
-            'receptor_id' => ['required', 'integer', 'exists:users,id'],
-            'contenido' => ['required', 'string'],
-            'fechaHora' => ['required', 'date'],
-            'editado' => ['required', 'boolean'],
+            'chat' => 'sometimes|string|max:255',
+            'emisor' => 'sometimes|string|max:255',
+            'receptor' => 'sometimes|string|max:255',
+            'contenido' => 'sometimes|string',
+            'editado' => 'boolean',
         ]);
-
-        return Mensaje::create($data);
-    }
-
-    public function actualizar(Request $request, Mensaje $mensaje)
-    {
-        $data = $request->validate([
-            'chat_id' => ['sometimes', 'integer', 'exists:chats,id'],
-            'emisor_id' => ['sometimes', 'integer', 'exists:users,id'],
-            'receptor_id' => ['sometimes', 'integer', 'exists:users,id'],
-            'contenido' => ['sometimes', 'string'],
-            'fechaHora' => ['sometimes', 'date'],
-            'editado' => ['sometimes', 'boolean'],
-        ]);
-
+        
         $mensaje->update($data);
-
-        return $mensaje;
+        
+        return response()->json(['success' => true, 'data' => $mensaje, 'message' => 'Mensaje actualizado correctamente']);
     }
-
-    public function eliminar(Mensaje $mensaje)
+    
+    public function destroy($id)
     {
+        $mensaje = Mensaje::findOrFail($id);
         $mensaje->delete();
-
-        return response()->json(null, 204);
+        
+        return response()->json(['success' => true, 'message' => 'Mensaje eliminado correctamente']);
     }
 }

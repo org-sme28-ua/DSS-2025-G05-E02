@@ -7,44 +7,75 @@ use Illuminate\Http\Request;
 
 class BilleteraController extends Controller
 {
-    public function listar()
+    public function getData(Request $request)
     {
-        return Billetera::with('user')->get();
+        $query = Billetera::query();
+
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where('id', 'like', '%' . $search . '%')
+                  ->orWhere('moneda', 'like', '%' . $search . '%');
+        }
+
+        if ($request->has('moneda') && $request->moneda !== '') {
+            $query->where('moneda', $request->moneda);
+        }
+
+        $sort = $request->get('sort', 'id');
+        $dir = $request->get('dir', 'asc');
+        $query->orderBy($sort, $dir);
+
+        $perPage = $request->get('per', 6);
+        return response()->json($query->paginate($perPage));
     }
 
-    public function ver(Billetera $billetera)
+    public function show($id)
     {
-        return $billetera->load('user');
+        return response()->json(Billetera::findOrFail($id));
     }
 
-    public function crear(Request $request)
+    public function store(Request $request)
     {
         $data = $request->validate([
-            'user_id' => ['required', 'integer', 'exists:users,id'],
-            'saldoDisponible' => ['required', 'numeric', 'min:0'],
-            'moneda' => ['required', 'string', 'max:10'],
+            'saldoDisponible' => 'required|numeric|min:0',
+            'moneda' => 'required|string|max:10',
         ]);
 
-        return Billetera::create($data);
+        $billetera = Billetera::create($data);
+
+        return response()->json([
+            'success' => true,
+            'data' => $billetera,
+            'message' => 'Billetera creada correctamente'
+        ], 201);
     }
 
-    public function actualizar(Request $request, Billetera $billetera)
+    public function update(Request $request, $id)
     {
+        $billetera = Billetera::findOrFail($id);
+
         $data = $request->validate([
-            'user_id' => ['sometimes', 'integer', 'exists:users,id'],
-            'saldoDisponible' => ['sometimes', 'numeric', 'min:0'],
-            'moneda' => ['sometimes', 'string', 'max:10'],
+            'saldoDisponible' => 'sometimes|numeric|min:0',
+            'moneda' => 'sometimes|string|max:10',
         ]);
 
         $billetera->update($data);
 
-        return $billetera;
+        return response()->json([
+            'success' => true,
+            'data' => $billetera,
+            'message' => 'Billetera actualizada correctamente'
+        ]);
     }
 
-    public function eliminar(Billetera $billetera)
+    public function destroy($id)
     {
+        $billetera = Billetera::findOrFail($id);
         $billetera->delete();
 
-        return response()->json(null, 204);
+        return response()->json([
+            'success' => true,
+            'message' => 'Billetera eliminada correctamente'
+        ]);
     }
 }
