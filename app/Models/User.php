@@ -22,7 +22,8 @@ class User extends Authenticatable
         'email',
         'password',
         'puntos_fidelidad',
-        'nivel_vip'
+        'nivel_vip',
+        'role',
     ];
 
 
@@ -96,7 +97,7 @@ class User extends Authenticatable
         $usuario->save();
 
         // Inicializar billetera vacía
-        $usuario->billetera()->create(['saldo' => 0]);
+        $usuario->billetera()->create(['saldoDisponible' => 0, 'moneda' => 'EUR']);
 
         return $usuario;
     }
@@ -106,7 +107,16 @@ class User extends Authenticatable
         // Opcional: Validar saldo en billetera aquí antes de apostar
         // Esta función crea la apuesta y reduce saldo billetera
 
-        $this->billetera->saldo -= $monto;
+        if (!$this->billetera) {
+            $this->billetera()->create(['saldoDisponible' => 0, 'moneda' => 'EUR']);
+            $this->load('billetera');
+        }
+
+        if ($this->billetera->saldoDisponible < $monto) {
+            throw new \Exception('Saldo insuficiente.');
+        }
+
+        $this->billetera->saldoDisponible -= $monto;
         $this->billetera->save();
 
         return $this->apuestas()->create([
