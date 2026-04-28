@@ -12,11 +12,17 @@ class Chat extends Model
     protected $fillable = [
         'nombre',
         'fechaCreacion',
-        'activo'
+        'activo',
+        'user_id'
     ];
 
     public function mensajes()
     {
         return $this->hasMany(Mensaje::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

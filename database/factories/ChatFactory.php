@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
 use App\Models\Chat;
+use App\Models\User;
 
 class ChatFactory extends Factory
 {
@@ -14,6 +15,7 @@ class ChatFactory extends Factory
         return [
             'nombre' => 'Sala '.$this->faker->word(),
             'activo' => true,
+            'user_id' => User::factory(),
         ];
     }
 }

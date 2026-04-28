@@ -19,4 +19,26 @@ class Billetera extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function depositar(float $monto)
+    {
+        $this->saldoDisponible += $monto;
+        $this->save();
+        return $this->saldoDisponible;
+    }
+
+    public function retirar(float $monto)
+    {
+        if ($this->saldoDisponible < $monto) {
+            throw new \Exception('Saldo insuficiente.');
+        }
+        $this->saldoDisponible -= $monto;
+        $this->save();
+        return $this->saldoDisponible;
+    }
+
+    public function consultarSaldo()
+    {
+        return $this->saldoDisponible;
+    }
 }
