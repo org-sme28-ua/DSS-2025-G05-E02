@@ -4,6 +4,10 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 
+use Illuminate\Pagination\Paginator;
+
+
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -13,12 +17,12 @@ class AppServiceProvider extends ServiceProvider
     {
         //
     }
-
+    public function boot(): void
+    {
+        Paginator::useBootstrapFive(); // Esto hará que la paginación sea pequeña y limpia
+    }
     /**
      * Bootstrap any application services.
      */
-    public function boot(): void
-    {
-        //
-    }
+
 }

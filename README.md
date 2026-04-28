@@ -63,6 +63,8 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 
 ## License
 
+Levantar pagina: php artisan serve
+
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
 
 ##Adminer Acces: http://localhost/adminer?server=&username=dss&db=dss&table=transaccion
@@ -78,3 +80,5 @@ Para falllos satánicos:
 
 
 ##Ejecutar Seeders: php artisan db:seed (Todo tiene que estar limpio, ejecutar comandos de limpieza)
+
+##Comando pa borrar las tablas y volver a crearlas: php artisan migrate:fresh
