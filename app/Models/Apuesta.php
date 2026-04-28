@@ -73,7 +73,11 @@ class Apuesta extends Model
         if ($resultado === 'ganada') {
             $ganancia = $this->monto * $this->cuota;
             // Añadir dinero a billetera
-            $user->billetera->saldo += $ganancia;
+            if (!$user->billetera) {
+                $user->billetera()->create(['saldoDisponible' => 0, 'moneda' => 'EUR']);
+                $user->load('billetera');
+            }
+            $user->billetera->saldoDisponible += $ganancia;
             $user->billetera->save();
             // Añadir puntos de fidelidad
             $puntos = intval($ganancia / 10);
