@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('notificaciones', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->enum('tipo', ['apuesta', 'promo', 'alerta', 'chat'])->default('apuesta');
+            $table->enum('tipo', ['apuesta', 'promo', 'alerta', 'chat', 'info', 'mensaje', 'sistema'])->default('info');
             $table->string('titulo');
             $table->text('mensaje');
             $table->boolean('leido')->default(false);

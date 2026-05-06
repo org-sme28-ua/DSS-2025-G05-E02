@@ -15,7 +15,15 @@ class Apuesta extends Model
         'monto',
         'cuota',
         'estado',
+        'seleccion',
+        'resultado',
         'fecha'
+    ];
+
+    protected $casts = [
+        'monto' => 'decimal:2',
+        'cuota' => 'decimal:2',
+        'fecha' => 'datetime',
     ];
 
     public function user()

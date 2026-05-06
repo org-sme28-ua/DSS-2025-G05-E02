@@ -38,7 +38,25 @@ Route::post('/logout', [AuthController::class, 'logout'])
 // ============================================================
 
 Route::middleware('auth')->group(function () {
-    Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/dashboard', function () {
+        $user = auth()->user();
+
+        $wallet = $user->billetera()->firstOrCreate(
+            ['user_id' => $user->id],
+            ['saldoDisponible' => 0, 'moneda' => 'EUR']
+        );
+
+        $recentBets = $user->apuestas()
+            ->with('juego')
+            ->latest('fecha')
+            ->take(5)
+            ->get();
+
+        return view('dashboard', [
+            'wallet' => $wallet,
+            'recentBets' => $recentBets,
+        ]);
+    })->name('dashboard');
 
     Route::get('/billetera', function () {
         $user = auth()->user();
@@ -77,16 +95,10 @@ Route::middleware('auth')->group(function () {
         ]);
     })->name('private.apuestas');
 
-    Route::get('/mis-notificaciones', function () {
-        $notificaciones = \App\Models\Notificacion::query()
-            ->where('user_id', auth()->id())
-            ->latest('fecha')
-            ->get();
-
-        return view('notificaciones', [
-            'notificaciones' => $notificaciones,
-        ]);
-    })->name('private.notificaciones');
+    Route::get('/mis-notificaciones', [NotificacionController::class, 'index'])->name('private.notificaciones');
+    Route::post('/mis-notificaciones/marcar-todas', [NotificacionController::class, 'markAllAsRead'])->name('private.notificaciones.markAll');
+    Route::patch('/mis-notificaciones/{notificacion}/leer', [NotificacionController::class, 'markAsRead'])->name('private.notificaciones.read');
+    Route::delete('/mis-notificaciones/{notificacion}', [NotificacionController::class, 'destroyOwn'])->name('private.notificaciones.destroy');
 
     Route::get('/chat', function () {
         $chats = auth()->user()->chats()

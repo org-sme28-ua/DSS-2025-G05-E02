@@ -4,10 +4,19 @@
 @section('topbar_title', 'Billetera')
 @section('active_nav', 'billetera')
 
+@php
+    $colorLabels = [
+        'red' => 'Rojo',
+        'black' => 'Negro',
+        'green' => 'Verde',
+    ];
+@endphp
+
 @section('content')
     <div class="page-header">
         <div>
             <h1 class="page-title">Billetera</h1>
+            <p class="page-subtitle">Resumen del saldo ficticio y de las ultimas apuestas vinculadas a la cuenta.</p>
         </div>
     </div>
 
@@ -60,7 +69,7 @@
                             <tr>
                                 <th>Juego</th>
                                 <th>Monto</th>
-                                <th>Cuota</th>
+                                <th>Detalle</th>
                                 <th>Estado</th>
                                 <th>Fecha</th>
                             </tr>
@@ -70,7 +79,16 @@
                                 <tr>
                                     <td>{{ $apuesta->juego->nombre ?? ('Juego #' . $apuesta->juego_id) }}</td>
                                     <td>{{ number_format((float) $apuesta->monto, 2, ',', '.') }} {{ $billetera->moneda }}</td>
-                                    <td>{{ number_format((float) $apuesta->cuota, 2, ',', '.') }}</td>
+                                    <td>
+                                        @if ($apuesta->seleccion || $apuesta->resultado)
+                                            {{ $colorLabels[$apuesta->seleccion ?? ''] ?? $apuesta->seleccion }}
+                                            @if ($apuesta->resultado)
+                                                → {{ $colorLabels[$apuesta->resultado] ?? $apuesta->resultado }}
+                                            @endif
+                                        @else
+                                            Cuota {{ number_format((float) $apuesta->cuota, 2, ',', '.') }}
+                                        @endif
+                                    </td>
                                     <td><span class="badge {{ $apuesta->estado }}">{{ ucfirst($apuesta->estado) }}</span></td>
                                     <td>{{ $apuesta->fecha ? \Illuminate\Support\Carbon::parse($apuesta->fecha)->format('d/m/Y H:i') : '-' }}</td>
                                 </tr>
