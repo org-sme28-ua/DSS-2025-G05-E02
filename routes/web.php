@@ -12,6 +12,7 @@ use App\Http\Controllers\RankingController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\RouletteController;
 use App\Models\User;
 
 // ============================================================
@@ -107,6 +108,8 @@ Route::middleware('auth')->group(function () {
     })->name('private.chat');
 
     Route::view('/configuracion', 'configuracion')->name('private.configuracion');
+    Route::get('/ruleta', [RouletteController::class, 'index'])->name('roulette.index');
+    Route::post('/ruleta', [RouletteController::class, 'play'])->name('roulette.play');
 
     // --- ADMIN DASHBOARD ---
     Route::get('/admin', function () {
