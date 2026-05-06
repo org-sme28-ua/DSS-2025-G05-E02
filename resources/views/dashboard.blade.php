@@ -74,6 +74,8 @@
         }
         .card strong { font-size: 24px; }
         .card span { font-size: 38px; }
+        .card-link { color: var(--text); text-decoration: none; transition: transform .16s, border-color .16s; }
+        .card-link:hover { transform: translateY(-3px); border-color: rgba(243,198,75,.46); }
         .admin-link {
             display: inline-block;
             margin-top: 26px;
@@ -96,6 +98,7 @@
             <div class="logo"><span class="logo-icon">🎰</span><span>Bookie 2.0</span></div>
             <nav>
                 <a href="{{ route('dashboard') }}">🏠 Lobby privado</a>
+                <a href="{{ route('roulette.index') }}">🎯 Ruleta</a>
                 <a href="#">💬 Chat</a>
                 <a href="#">🏆 Rankings</a>
                 <a href="#">💳 Billetera</a>
@@ -119,7 +122,7 @@
             </p>
 
             <section class="grid">
-                <article class="card"><strong>Ruleta</strong><span>🎯</span></article>
+                <a class="card card-link" href="{{ route('roulette.index') }}"><strong>Ruleta</strong><span>🎯</span></a>
                 <article class="card"><strong>Apuestas deportivas</strong><span>⚽</span></article>
                 <article class="card"><strong>Bingo</strong><span>🔢</span></article>
                 <article class="card"><strong>Slot machine</strong><span>🎰</span></article>

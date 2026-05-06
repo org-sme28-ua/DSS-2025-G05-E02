@@ -12,6 +12,7 @@ use App\Http\Controllers\RankingController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\RouletteController;
 use App\Models\User;
 
 // ============================================================
@@ -38,6 +39,9 @@ Route::post('/logout', [AuthController::class, 'logout'])
 
 Route::middleware('auth')->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
+
+    Route::get('/ruleta', [RouletteController::class, 'index'])->name('roulette.index');
+    Route::post('/ruleta', [RouletteController::class, 'play'])->name('roulette.play');
 
     // --- ADMIN DASHBOARD ---
     Route::get('/admin', function () {
