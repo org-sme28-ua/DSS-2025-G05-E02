@@ -428,6 +428,7 @@
             }
         }
     </style>
+    @stack('styles')
 </head>
 <body>
     @php($activeNav = trim($__env->yieldContent('active_nav', 'lobby')))
@@ -449,5 +450,6 @@
             </main>
         </div>
     </div>
+    @stack('scripts')
 </body>
 </html>

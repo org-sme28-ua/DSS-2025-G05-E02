@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Apuesta;
 use App\Models\Billetera;
 use App\Models\Juego;
-use App\Models\RouletteBet;
+use App\Models\Notificacion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -21,8 +21,12 @@ class RouletteController extends Controller
             ['saldoDisponible' => 0, 'moneda' => 'EUR']
         );
 
-        $lastBets = RouletteBet::where('user_id', $user->id)
-            ->latest()
+        $lastBets = $user->apuestas()
+            ->with('juego')
+            ->whereHas('juego', function ($query) {
+                $query->whereIn('nombre', ['Ruleta', 'Ruleta Europea']);
+            })
+            ->latest('fecha')
             ->take(10)
             ->get();
 
@@ -37,9 +41,9 @@ class RouletteController extends Controller
         ], [
             'selected_color.required' => 'Elige rojo o negro antes de girar.',
             'selected_color.in' => 'Solo puedes apostar a rojo o negro.',
-            'amount.required' => 'Indica cuánto quieres apostar.',
-            'amount.numeric' => 'La cantidad apostada debe ser un número.',
-            'amount.min' => 'La apuesta mínima es 1.',
+            'amount.required' => 'Indica cuanto quieres apostar.',
+            'amount.numeric' => 'La cantidad apostada debe ser un numero.',
+            'amount.min' => 'La apuesta minima es 1.',
             'amount.max' => 'La apuesta es demasiado alta.',
         ]);
 
@@ -80,45 +84,31 @@ class RouletteController extends Controller
             $wallet->saldoDisponible = $balanceAfterCents / 100;
             $wallet->save();
 
-            /*
-             * Creamos o reutilizamos el juego "Ruleta".
-             * Esto permite que cada tirada aparezca también en la tabla apuestas.
-             */
             $juego = Juego::firstOrCreate(
-                ['nombre' => 'Ruleta'],
+                ['nombre' => 'Ruleta Europea'],
                 [
                     'categoria' => 'Casino',
                     'estado' => 'abierta',
                 ]
             );
 
-            /*
-             * Registro general en la tabla apuestas.
-             * Aquí aparecerá la tirada en el admin o en cualquier listado general de apuestas.
-             */
             $apuesta = Apuesta::create([
                 'user_id' => $user->id,
                 'juego_id' => $juego->id,
                 'monto' => $amountCents / 100,
                 'cuota' => 2.00,
                 'estado' => $won ? 'ganada' : 'perdida',
+                'seleccion' => $selectedColor,
+                'resultado' => $resultColor,
                 'fecha' => now(),
             ]);
 
-            /*
-             * Registro específico de ruleta.
-             * Esta tabla guarda detalles que no existen en apuestas:
-             * color elegido, color resultado, balance antes/después, etc.
-             */
-            RouletteBet::create([
-                'user_id' => $user->id,
-                'selected_color' => $selectedColor,
-                'result_color' => $resultColor,
-                'amount' => $amountCents / 100,
-                'won' => $won,
-                'balance_before' => $balanceBeforeCents / 100,
-                'balance_after' => $balanceAfterCents / 100,
-            ]);
+            Notificacion::crearNotificacion(
+                $user->id,
+                $won ? 'Apuesta de ruleta ganada' : 'Apuesta de ruleta perdida',
+                $this->buildNotificationMessage($selectedColor, $resultColor, $amountCents / 100, $won),
+                'apuesta'
+            );
 
             return [
                 'apuesta_id' => $apuesta->id,
@@ -144,12 +134,6 @@ class RouletteController extends Controller
 
     private function spinRoulette(): string
     {
-        /*
-         * 37 casillas:
-         * 0 = verde
-         * 1-18 = rojo
-         * 19-36 = negro
-         */
         $slot = random_int(0, 36);
 
         if ($slot === 0) {
@@ -157,5 +141,24 @@ class RouletteController extends Controller
         }
 
         return $slot <= 18 ? 'red' : 'black';
+    }
+
+    private function buildNotificationMessage(string $selectedColor, string $resultColor, float $amount, bool $won): string
+    {
+        $labels = [
+            'red' => 'rojo',
+            'black' => 'negro',
+            'green' => 'verde',
+        ];
+
+        $selected = $labels[$selectedColor] ?? $selectedColor;
+        $result = $labels[$resultColor] ?? $resultColor;
+        $amountText = number_format($amount, 2, ',', '.');
+
+        if ($won) {
+            return "Apostaste {$amountText} EUR a {$selected}, salio {$result} y ganaste {$amountText} EUR.";
+        }
+
+        return "Apostaste {$amountText} EUR a {$selected}, salio {$result} y perdiste la apuesta.";
     }
 }

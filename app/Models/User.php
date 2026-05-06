@@ -61,10 +61,6 @@ class User extends Authenticatable
         return $this->hasMany(Apuesta::class);
     }
 
-    public function rouletteBets()
-    {
-        return $this->hasMany(RouletteBet::class);
-    }
 
     public function chats()
     {

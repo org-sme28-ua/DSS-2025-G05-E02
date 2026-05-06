@@ -4,11 +4,19 @@
 @section('topbar_title', 'Mis apuestas')
 @section('active_nav', 'apuestas')
 
+@php
+    $colorLabels = [
+        'red' => 'Rojo',
+        'black' => 'Negro',
+        'green' => 'Verde',
+    ];
+@endphp
+
 @section('content')
     <div class="page-header">
         <div>
             <h1 class="page-title">Mis apuestas</h1>
-            <p class="page-subtitle">Historial del usuario con el detalle de monto, cuota, estado y fecha.</p>
+            <p class="page-subtitle">Historial del usuario con monto, cuota, estado y detalles del resultado cuando el juego los tenga.</p>
         </div>
     </div>
 
@@ -45,6 +53,8 @@
                                 <th>Juego</th>
                                 <th>Monto</th>
                                 <th>Cuota</th>
+                                <th>Seleccion</th>
+                                <th>Resultado</th>
                                 <th>Estado</th>
                                 <th>Fecha</th>
                             </tr>
@@ -55,6 +65,8 @@
                                     <td>{{ $apuesta->juego->nombre ?? ('Juego #' . $apuesta->juego_id) }}</td>
                                     <td>{{ number_format((float) $apuesta->monto, 2, ',', '.') }} EUR</td>
                                     <td>{{ number_format((float) $apuesta->cuota, 2, ',', '.') }}</td>
+                                    <td>{{ $colorLabels[$apuesta->seleccion ?? ''] ?? ($apuesta->seleccion ?: '-') }}</td>
+                                    <td>{{ $colorLabels[$apuesta->resultado ?? ''] ?? ($apuesta->resultado ?: '-') }}</td>
                                     <td><span class="badge {{ $apuesta->estado }}">{{ ucfirst($apuesta->estado) }}</span></td>
                                     <td>{{ $apuesta->fecha ? \Illuminate\Support\Carbon::parse($apuesta->fecha)->format('d/m/Y H:i') : '-' }}</td>
                                 </tr>

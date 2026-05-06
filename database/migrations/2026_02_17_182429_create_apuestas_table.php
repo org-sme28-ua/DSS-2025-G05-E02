@@ -29,6 +29,11 @@ return new class extends Migration
                 'perdida'
             ])->default('pendiente');
 
+            // Campos genericos opcionales para guardar detalles de juegos sencillos
+            // como la ruleta sin crear una tabla especifica por juego.
+            $table->string('seleccion')->nullable();
+            $table->string('resultado')->nullable();
+
             $table->timestamp('fecha')->useCurrent();
 
             $table->timestamps();
