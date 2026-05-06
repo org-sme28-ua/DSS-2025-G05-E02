@@ -40,6 +40,74 @@ Route::post('/logout', [AuthController::class, 'logout'])
 Route::middleware('auth')->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
 
+    Route::get('/billetera', function () {
+        $user = auth()->user();
+
+        if (!$user->billetera) {
+            $user->billetera()->create([
+                'saldoDisponible' => 0,
+                'moneda' => 'EUR',
+            ]);
+            $user->load('billetera');
+        }
+
+        $apuestas = $user->apuestas()
+            ->with('juego')
+            ->latest('fecha')
+            ->take(5)
+            ->get();
+
+        return view('billetera', [
+            'billetera' => $user->billetera,
+            'apuestas' => $apuestas,
+            'totalApuestas' => $user->apuestas()->count(),
+            'apuestasPendientes' => $user->apuestas()->where('estado', 'pendiente')->count(),
+            'apuestasGanadas' => $user->apuestas()->where('estado', 'ganada')->count(),
+        ]);
+    })->name('billetera');
+
+    Route::get('/mis-apuestas', function () {
+        $apuestas = auth()->user()->apuestas()
+            ->with('juego')
+            ->latest('fecha')
+            ->get();
+
+        return view('apuestas', [
+            'apuestas' => $apuestas,
+        ]);
+    })->name('private.apuestas');
+
+    Route::get('/mis-notificaciones', function () {
+        $notificaciones = \App\Models\Notificacion::query()
+            ->where('user_id', auth()->id())
+            ->latest('fecha')
+            ->get();
+
+        return view('notificaciones', [
+            'notificaciones' => $notificaciones,
+        ]);
+    })->name('private.notificaciones');
+
+    Route::get('/chat', function () {
+        $chats = auth()->user()->chats()
+            ->withCount('mensajes')
+            ->latest()
+            ->get();
+
+        $mensajes = \App\Models\Mensaje::query()
+            ->with(['chat', 'emisor'])
+            ->whereIn('chat_id', $chats->pluck('id'))
+            ->latest('fechaHora')
+            ->take(8)
+            ->get();
+
+        return view('chat', [
+            'chats' => $chats,
+            'mensajes' => $mensajes,
+        ]);
+    })->name('private.chat');
+
+    Route::view('/configuracion', 'configuracion')->name('private.configuracion');
     Route::get('/ruleta', [RouletteController::class, 'index'])->name('roulette.index');
     Route::post('/ruleta', [RouletteController::class, 'play'])->name('roulette.play');
 
