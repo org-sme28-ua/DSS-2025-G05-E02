@@ -66,6 +66,11 @@ class User extends Authenticatable
         return $this->hasMany(Chat::class);
     }
 
+    public function notificaciones()
+    {
+        return $this->hasMany(Notificacion::class);
+    }
+
     public function mensajesEnviados()
     {
         return $this->hasMany(Mensaje::class, 'emisor_id');
@@ -220,12 +225,12 @@ class User extends Authenticatable
     // Notificaciones
     public function notificacionesNoLeidas()
     {
-        return $this->hasMany(Notificacion::class)->where('leida', false)->get();
+        return $this->notificaciones()->where('leido', false)->get();
     }
 
     public function marcarNotificacionesComoLeidas()
     {
-        return $this->hasMany(Notificacion::class)->where('leida', false)->update(['leida' => true]);
+        return $this->notificaciones()->where('leido', false)->update(['leido' => true]);
     }
 
     // Configuración y perfil
