@@ -21,11 +21,10 @@ class RouletteController extends Controller
             ['saldoDisponible' => 0, 'moneda' => 'EUR']
         );
 
-        $lastBets = $user->apuestas()
+        $lastBets = Apuesta::query()
+            ->where('user_id', $user->id)
+            ->where('tipo', 'ruleta')
             ->with('juego')
-            ->whereHas('juego', function ($query) {
-                $query->whereIn('nombre', ['Ruleta', 'Ruleta Europea']);
-            })
             ->latest('fecha')
             ->take(10)
             ->get();
@@ -41,9 +40,9 @@ class RouletteController extends Controller
         ], [
             'selected_color.required' => 'Elige rojo o negro antes de girar.',
             'selected_color.in' => 'Solo puedes apostar a rojo o negro.',
-            'amount.required' => 'Indica cuanto quieres apostar.',
-            'amount.numeric' => 'La cantidad apostada debe ser un numero.',
-            'amount.min' => 'La apuesta minima es 1.',
+            'amount.required' => 'Indica cuánto quieres apostar.',
+            'amount.numeric' => 'La cantidad apostada debe ser un número.',
+            'amount.min' => 'La apuesta mínima es 1.',
             'amount.max' => 'La apuesta es demasiado alta.',
         ]);
 
@@ -52,9 +51,7 @@ class RouletteController extends Controller
         $amountCents = (int) round(((float) $validated['amount']) * 100);
 
         $result = DB::transaction(function () use ($user, $selectedColor, $amountCents) {
-            $wallet = Billetera::where('user_id', $user->id)
-                ->lockForUpdate()
-                ->first();
+            $wallet = Billetera::where('user_id', $user->id)->lockForUpdate()->first();
 
             if (!$wallet) {
                 $wallet = Billetera::create([
@@ -65,10 +62,6 @@ class RouletteController extends Controller
             }
 
             $balanceBeforeCents = (int) round(((float) $wallet->saldoDisponible) * 100);
-
-            if ($amountCents <= 0) {
-                return ['error' => 'La apuesta debe ser mayor que 0.'];
-            }
 
             if ($balanceBeforeCents < $amountCents) {
                 return ['error' => 'Saldo insuficiente para hacer esa apuesta.'];
@@ -85,28 +78,32 @@ class RouletteController extends Controller
             $wallet->save();
 
             $juego = Juego::firstOrCreate(
-                ['nombre' => 'Ruleta Europea'],
-                [
-                    'categoria' => 'Casino',
-                    'estado' => 'abierta',
-                ]
+                ['nombre' => 'Ruleta'],
+                ['categoria' => 'Casino', 'estado' => 'abierta']
             );
+
+            $colorLabels = ['red' => 'Rojo', 'black' => 'Negro', 'green' => 'Verde'];
 
             $apuesta = Apuesta::create([
                 'user_id' => $user->id,
                 'juego_id' => $juego->id,
+                'tipo' => 'ruleta',
+                'descripcion' => 'Apuesta simple a color en ruleta',
+                'seleccion' => $selectedColor,
+                'resultado' => $resultColor,
                 'monto' => $amountCents / 100,
                 'cuota' => 2.00,
                 'estado' => $won ? 'ganada' : 'perdida',
-                'seleccion' => $selectedColor,
-                'resultado' => $resultColor,
                 'fecha' => now(),
+                'balance_antes' => $balanceBeforeCents / 100,
+                'balance_despues' => $balanceAfterCents / 100,
+                'resuelta_at' => now(),
             ]);
 
             Notificacion::crearNotificacion(
                 $user->id,
-                $won ? 'Apuesta de ruleta ganada' : 'Apuesta de ruleta perdida',
-                $this->buildNotificationMessage($selectedColor, $resultColor, $amountCents / 100, $won),
+                $won ? 'Ruleta ganada' : 'Ruleta perdida',
+                'Apostaste a ' . ($colorLabels[$selectedColor] ?? $selectedColor) . ' y salió ' . ($colorLabels[$resultColor] ?? $resultColor) . '.',
                 'apuesta'
             );
 
@@ -122,14 +119,10 @@ class RouletteController extends Controller
         });
 
         if (isset($result['error'])) {
-            return back()
-                ->withErrors(['amount' => $result['error']])
-                ->withInput();
+            return back()->withErrors(['amount' => $result['error']])->withInput();
         }
 
-        return redirect()
-            ->route('roulette.index')
-            ->with('roulette_result', $result);
+        return redirect()->route('roulette.index')->with('roulette_result', $result);
     }
 
     private function spinRoulette(): string
@@ -141,24 +134,5 @@ class RouletteController extends Controller
         }
 
         return $slot <= 18 ? 'red' : 'black';
-    }
-
-    private function buildNotificationMessage(string $selectedColor, string $resultColor, float $amount, bool $won): string
-    {
-        $labels = [
-            'red' => 'rojo',
-            'black' => 'negro',
-            'green' => 'verde',
-        ];
-
-        $selected = $labels[$selectedColor] ?? $selectedColor;
-        $result = $labels[$resultColor] ?? $resultColor;
-        $amountText = number_format($amount, 2, ',', '.');
-
-        if ($won) {
-            return "Apostaste {$amountText} EUR a {$selected}, salio {$result} y ganaste {$amountText} EUR.";
-        }
-
-        return "Apostaste {$amountText} EUR a {$selected}, salio {$result} y perdiste la apuesta.";
     }
 }

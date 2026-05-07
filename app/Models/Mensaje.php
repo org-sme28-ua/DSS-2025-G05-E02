@@ -14,20 +14,27 @@ class Mensaje extends Model
         'emisor_id',
         'receptor_id',
         'contenido',
-        'fechaHora',
-        'editado'
+        'editado',
+        'read_at',
     ];
 
-    public function chat(){
+    protected $casts = [
+        'editado' => 'boolean',
+        'read_at' => 'datetime',
+    ];
+
+    public function chat()
+    {
         return $this->belongsTo(Chat::class);
     }
 
-    public function emisor(){
+    public function emisor()
+    {
         return $this->belongsTo(User::class, 'emisor_id');
     }
 
-    public function receptor(){
+    public function receptor()
+    {
         return $this->belongsTo(User::class, 'receptor_id');
     }
 }
-

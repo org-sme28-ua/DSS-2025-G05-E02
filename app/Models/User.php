@@ -136,13 +136,16 @@ class User extends Authenticatable
 
     public function enviarMensaje(User $receptor, string $contenido, int $chatId = null)
     {
-        // Si no hay chatId, buscar o crear un chat entre los dos usuarios
-        if (!$chatId) {
+        if (! $chatId) {
             $chat = Chat::primerChatEntre($this->id, $receptor->id);
-            if (!$chat) {
+
+            if (! $chat) {
                 $chat = Chat::crearChatEntre($this->id, $receptor->id);
             }
+
             $chatId = $chat->id;
+        } else {
+            $chat = Chat::findOrFail($chatId);
         }
 
         $mensaje = Mensaje::create([
@@ -150,16 +153,21 @@ class User extends Authenticatable
             'emisor_id' => $this->id,
             'receptor_id' => $receptor->id,
             'contenido' => $contenido,
-            'fechaHora' => now(),
             'editado' => false,
         ]);
-        // Crear notificación para el receptor
-        \App\Models\Notificacion::crearNotificacion(
+
+        $chat->update([
+            'last_message_at' => now(),
+            'activo' => true,
+        ]);
+
+        Notificacion::crearNotificacion(
             $receptor->id,
-            'Nuevo mensaje recibido',
-            "Has recibido un nuevo mensaje de {$this->name}.",
+            'Nuevo mensaje de ' . $this->name,
+            $this->name . ' te ha escrito en el chat.',
             'mensaje'
         );
+
         return $mensaje;
     }
 
