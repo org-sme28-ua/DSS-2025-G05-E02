@@ -2,10 +2,10 @@
 
 namespace Database\Factories;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
-use App\Models\Mensaje;
 use App\Models\Chat;
+use App\Models\Mensaje;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
 class MensajeFactory extends Factory
 {
@@ -19,9 +19,7 @@ class MensajeFactory extends Factory
             'receptor_id' => User::factory(),
             'contenido' => $this->faker->sentence(),
             'editado' => false,
-
-            // Si tu tabla SÍ tiene fechaHora:
-            // 'fechaHora' => now(),
+            'read_at' => null,
         ];
     }
 }

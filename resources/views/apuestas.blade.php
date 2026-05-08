@@ -8,7 +8,7 @@
     <div class="page-header">
         <div>
             <h1 class="page-title">Mis apuestas</h1>
-            <p class="page-subtitle">Historial del usuario con el detalle de monto, cuota, estado y fecha.</p>
+            <p class="page-subtitle">Historial general: ruleta, predicciones y futuros juegos compartirán la tabla de apuestas.</p>
         </div>
     </div>
 
@@ -19,8 +19,8 @@
                 <div class="stat-value">{{ $apuestas->count() }}</div>
             </article>
             <article class="stat-card">
-                <p class="label">Pendientes</p>
-                <div class="stat-value">{{ $apuestas->where('estado', 'pendiente')->count() }}</div>
+                <p class="label">Pendientes / aceptadas</p>
+                <div class="stat-value">{{ $apuestas->whereIn('estado', ['pendiente', 'aceptada'])->count() }}</div>
             </article>
             <article class="stat-card">
                 <p class="label">Ganadas</p>
@@ -36,27 +36,41 @@
             <p class="label">Listado</p>
 
             @if ($apuestas->isEmpty())
-                <p class="empty-state">Todavia no hay apuestas registradas para este usuario.</p>
+                <p class="empty-state">Todavía no hay apuestas registradas para este usuario.</p>
             @else
                 <div class="table-wrap">
                     <table class="table">
                         <thead>
                             <tr>
                                 <th>Juego</th>
+                                <th>Detalle</th>
                                 <th>Monto</th>
                                 <th>Cuota</th>
                                 <th>Estado</th>
+                                <th>Resultado</th>
                                 <th>Fecha</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($apuestas as $apuesta)
                                 <tr>
-                                    <td>{{ $apuesta->juego->nombre ?? ('Juego #' . $apuesta->juego_id) }}</td>
+                                    <td>
+                                        <strong>{{ $apuesta->juego->nombre ?? ('Juego #' . $apuesta->juego_id) }}</strong>
+                                        <div class="muted">{{ ucfirst($apuesta->tipo ?? 'general') }}</div>
+                                    </td>
+                                    <td>
+                                        @if ($apuesta->descripcion)
+                                            <div>{{ $apuesta->descripcion }}</div>
+                                        @endif
+                                        @if ($apuesta->seleccion)
+                                            <div class="muted">Selección: {{ $apuesta->seleccion }}</div>
+                                        @endif
+                                    </td>
                                     <td>{{ number_format((float) $apuesta->monto, 2, ',', '.') }} EUR</td>
                                     <td>{{ number_format((float) $apuesta->cuota, 2, ',', '.') }}</td>
-                                    <td><span class="badge {{ $apuesta->estado }}">{{ ucfirst($apuesta->estado) }}</span></td>
-                                    <td>{{ $apuesta->fecha ? \Illuminate\Support\Carbon::parse($apuesta->fecha)->format('d/m/Y H:i') : '-' }}</td>
+                                    <td><span class="badge {{ $apuesta->estado }}">{{ $apuesta->estadoEtiqueta() }}</span></td>
+                                    <td>{{ $apuesta->resultado ?: '-' }}</td>
+                                    <td>{{ $apuesta->fecha ? $apuesta->fecha->format('d/m/Y H:i') : '-' }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

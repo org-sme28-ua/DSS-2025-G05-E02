@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Apuesta;
 use App\Models\Billetera;
 use App\Models\Juego;
-use App\Models\RouletteBet;
+use App\Models\Notificacion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -21,8 +21,11 @@ class RouletteController extends Controller
             ['saldoDisponible' => 0, 'moneda' => 'EUR']
         );
 
-        $lastBets = RouletteBet::where('user_id', $user->id)
-            ->latest()
+        $lastBets = Apuesta::query()
+            ->where('user_id', $user->id)
+            ->where('tipo', 'ruleta')
+            ->with('juego')
+            ->latest('fecha')
             ->take(10)
             ->get();
 
@@ -48,9 +51,7 @@ class RouletteController extends Controller
         $amountCents = (int) round(((float) $validated['amount']) * 100);
 
         $result = DB::transaction(function () use ($user, $selectedColor, $amountCents) {
-            $wallet = Billetera::where('user_id', $user->id)
-                ->lockForUpdate()
-                ->first();
+            $wallet = Billetera::where('user_id', $user->id)->lockForUpdate()->first();
 
             if (!$wallet) {
                 $wallet = Billetera::create([
@@ -61,10 +62,6 @@ class RouletteController extends Controller
             }
 
             $balanceBeforeCents = (int) round(((float) $wallet->saldoDisponible) * 100);
-
-            if ($amountCents <= 0) {
-                return ['error' => 'La apuesta debe ser mayor que 0.'];
-            }
 
             if ($balanceBeforeCents < $amountCents) {
                 return ['error' => 'Saldo insuficiente para hacer esa apuesta.'];
@@ -80,45 +77,35 @@ class RouletteController extends Controller
             $wallet->saldoDisponible = $balanceAfterCents / 100;
             $wallet->save();
 
-            /*
-             * Creamos o reutilizamos el juego "Ruleta".
-             * Esto permite que cada tirada aparezca también en la tabla apuestas.
-             */
             $juego = Juego::firstOrCreate(
                 ['nombre' => 'Ruleta'],
-                [
-                    'categoria' => 'Casino',
-                    'estado' => 'abierta',
-                ]
+                ['categoria' => 'Casino', 'estado' => 'abierta']
             );
 
-            /*
-             * Registro general en la tabla apuestas.
-             * Aquí aparecerá la tirada en el admin o en cualquier listado general de apuestas.
-             */
+            $colorLabels = ['red' => 'Rojo', 'black' => 'Negro', 'green' => 'Verde'];
+
             $apuesta = Apuesta::create([
                 'user_id' => $user->id,
                 'juego_id' => $juego->id,
+                'tipo' => 'ruleta',
+                'descripcion' => 'Apuesta simple a color en ruleta',
+                'seleccion' => $selectedColor,
+                'resultado' => $resultColor,
                 'monto' => $amountCents / 100,
                 'cuota' => 2.00,
                 'estado' => $won ? 'ganada' : 'perdida',
                 'fecha' => now(),
+                'balance_antes' => $balanceBeforeCents / 100,
+                'balance_despues' => $balanceAfterCents / 100,
+                'resuelta_at' => now(),
             ]);
 
-            /*
-             * Registro específico de ruleta.
-             * Esta tabla guarda detalles que no existen en apuestas:
-             * color elegido, color resultado, balance antes/después, etc.
-             */
-            RouletteBet::create([
-                'user_id' => $user->id,
-                'selected_color' => $selectedColor,
-                'result_color' => $resultColor,
-                'amount' => $amountCents / 100,
-                'won' => $won,
-                'balance_before' => $balanceBeforeCents / 100,
-                'balance_after' => $balanceAfterCents / 100,
-            ]);
+            Notificacion::crearNotificacion(
+                $user->id,
+                $won ? 'Ruleta ganada' : 'Ruleta perdida',
+                'Apostaste a ' . ($colorLabels[$selectedColor] ?? $selectedColor) . ' y salió ' . ($colorLabels[$resultColor] ?? $resultColor) . '.',
+                'apuesta'
+            );
 
             return [
                 'apuesta_id' => $apuesta->id,
@@ -132,24 +119,14 @@ class RouletteController extends Controller
         });
 
         if (isset($result['error'])) {
-            return back()
-                ->withErrors(['amount' => $result['error']])
-                ->withInput();
+            return back()->withErrors(['amount' => $result['error']])->withInput();
         }
 
-        return redirect()
-            ->route('roulette.index')
-            ->with('roulette_result', $result);
+        return redirect()->route('roulette.index')->with('roulette_result', $result);
     }
 
     private function spinRoulette(): string
     {
-        /*
-         * 37 casillas:
-         * 0 = verde
-         * 1-18 = rojo
-         * 19-36 = negro
-         */
         $slot = random_int(0, 36);
 
         if ($slot === 0) {

@@ -1,126 +1,37 @@
 @extends('layouts.private')
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zona privada | Bookie 2.0</title>
-    <style>
-        :root {
-            --bg: #8c3434;
-            --bg-dark: #641f1f;
-            --sidebar: #4a1010;
-            --card: rgba(255,255,255,.10);
-            --text: #fff7f2;
-            --muted: #e6caca;
-            --gold: #f3c64b;
-        }
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            min-height: 100vh;
-            font-family: Arial, sans-serif;
-            color: var(--text);
-            background: linear-gradient(135deg, var(--bg), var(--bg-dark));
-        }
-        .layout { display: flex; min-height: 100vh; }
-        aside {
-            width: 240px;
-            background: var(--sidebar);
-            padding: 22px;
-            display: flex;
-            flex-direction: column;
-            gap: 22px;
-        }
-        .logo { display: flex; align-items: center; gap: 10px; font-weight: 900; }
-        .logo-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--gold); color: #351010; }
-        nav { display: grid; gap: 10px; }
-        nav a, .logout-btn {
-            color: var(--text);
-            text-decoration: none;
-            padding: 10px 12px;
-            border-radius: 12px;
-            background: rgba(255,255,255,.06);
-            border: 1px solid rgba(255,255,255,.10);
-            font: inherit;
-            text-align: left;
-            cursor: pointer;
-        }
-        main { flex: 1; padding: 28px; }
-        .topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 18px;
-            margin-bottom: 28px;
-        }
-        .user { color: var(--muted); }
-        h1 { margin: 0 0 10px; font-size: clamp(32px, 5vw, 54px); }
-        .intro { margin: 0 0 28px; max-width: 760px; color: var(--muted); line-height: 1.55; }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 18px;
-        }
-        .card {
-            min-height: 170px;
-            border-radius: 22px;
-            background: var(--card);
-            border: 1px solid rgba(255,255,255,.14);
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            box-shadow: 0 18px 45px rgba(0,0,0,.18);
-        }
-        .card strong { font-size: 24px; }
-        .card span { font-size: 38px; }
-        .card-link { color: var(--text); text-decoration: none; transition: transform .16s, border-color .16s; }
-        .card-link:hover { transform: translateY(-3px); border-color: rgba(243,198,75,.46); }
-        .admin-link {
-            display: inline-block;
-            margin-top: 26px;
-            color: #351010;
-            background: var(--gold);
-            padding: 12px 18px;
-            border-radius: 999px;
-            text-decoration: none;
-            font-weight: 900;
-        }
-        @media (max-width: 780px) {
-            .layout { flex-direction: column; }
-            aside { width: auto; }
-        }
-    </style>
-</head>
-<body>
-    <div class="layout">
-        <aside>
-            <div class="logo"><span class="logo-icon">🎰</span><span>Bookie 2.0</span></div>
-            <nav>
-                <a href="{{ route('dashboard') }}">🏠 Lobby privado</a>
-                <a href="{{ route('roulette.index') }}">🎯 Ruleta</a>
-                <a href="#">💬 Chat</a>
-                <a href="#">🏆 Rankings</a>
-                <a href="#">💳 Billetera</a>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button class="logout-btn" type="submit">↩ Cerrar sesión</button>
-                </form>
-            </nav>
-        </aside>
 
-@section('title', 'Lobby')
-@section('topbar_title', 'Lobby')
-@section('active_nav', 'lobby')
+@section('title', 'Dashboard')
+@section('topbar_title', 'Dashboard')
+@section('active_nav', 'dashboard')
 
 @section('content')
+    @php
+        $money = fn ($value) => number_format((float) $value, 2, ',', '.') . ' EUR';
+        $chartValues = [
+            'Saldo' => max(0, (float) ($dashboardStats['saldo'] ?? 0)),
+            'Apostado' => max(0, (float) ($dashboardStats['total_apostado'] ?? 0)),
+            'Ganancias' => max(0, (float) ($dashboardStats['ganancia_neta'] ?? 0)),
+            'Pérdidas' => max(0, (float) ($dashboardStats['perdida_neta'] ?? 0)),
+        ];
+        $chartMax = max(1, max($chartValues));
+    @endphp
+
+    <style>
+        .dashboard-chart { display:grid; grid-template-columns:repeat(4,minmax(90px,1fr)); gap:14px; align-items:end; min-height:240px; padding-top:12px; }
+        .chart-col { display:grid; gap:10px; align-items:end; min-height:220px; }
+        .chart-bar-wrap { height:160px; display:flex; align-items:end; justify-content:center; border-radius:14px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); padding:8px; }
+        .chart-bar { width:100%; max-width:62px; min-height:8px; border-radius:12px 12px 6px 6px; background:linear-gradient(180deg,var(--gold),rgba(240,192,64,.35)); box-shadow:0 12px 28px rgba(0,0,0,.25); }
+        .chart-label { text-align:center; color:var(--muted); font-size:13px; font-weight:800; }
+        .chart-value { text-align:center; color:#fff; font-size:12px; }
+        .mini-status { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+        @media (max-width:700px){ .dashboard-chart{grid-template-columns:1fr 1fr;} }
+    </style>
+
     <div class="page-header">
         <div>
-            <h1 class="page-title">Lobby</h1>
+            <h1 class="page-title">Dashboard</h1>
             <p class="page-subtitle">
-                Este es el punto de entrada de la zona privada. Desde aqui el usuario accede a sus apuestas,
-                notificaciones, billetera y conversaciones.
+                Resumen privado de tu saldo, apuestas activas, ganancias y pérdidas. Los juegos están ahora en su propia pestaña.
             </p>
         </div>
     </div>
@@ -129,58 +40,98 @@
         <section class="stats-grid">
             <article class="stat-card">
                 <p class="label">Saldo disponible</p>
-                <div class="stat-value">{{ number_format((float) (auth()->user()->billetera->saldoDisponible ?? 0), 2, ',', '.') }} EUR</div>
+                <div class="stat-value">{{ $money($dashboardStats['saldo'] ?? 0) }}</div>
             </article>
             <article class="stat-card">
                 <p class="label">Apuestas activas</p>
-                <div class="stat-value">{{ auth()->user()->apuestas()->where('estado', 'pendiente')->count() }}</div>
+                <div class="stat-value">{{ $dashboardStats['apuestas_activas'] ?? 0 }}</div>
             </article>
             <article class="stat-card">
-                <p class="label">Notificaciones sin leer</p>
-                <div class="stat-value">{{ auth()->user()->notificaciones()->where('leido', false)->count() }}</div>
+                <p class="label">Ganadas</p>
+                <div class="stat-value">{{ $dashboardStats['apuestas_ganadas'] ?? 0 }}</div>
             </article>
             <article class="stat-card">
-                <p class="label">Chats activos</p>
-                <div class="stat-value">{{ auth()->user()->chats()->where('activo', true)->count() }}</div>
+                <p class="label">Perdidas</p>
+                <div class="stat-value">{{ $dashboardStats['apuestas_perdidas'] ?? 0 }}</div>
+            </article>
+            <article class="stat-card">
+                <p class="label">Notificaciones nuevas</p>
+                <div class="stat-value">{{ $dashboardStats['notificaciones_nuevas'] ?? 0 }}</div>
             </article>
         </section>
 
         <section class="hero-grid">
             <article class="panel panel-highlight">
-                <p class="label">Accesos rapidos</p>
-                <div class="actions">
-                    <a class="btn" href="{{ route('private.apuestas') }}">Mis apuestas</a>
-                    <a class="btn secondary" href="{{ route('private.notificaciones') }}">Notificaciones</a>
-                    <a class="btn secondary" href="{{ route('billetera') }}">Billetera</a>
-                    <a class="btn secondary" href="{{ route('private.chat') }}">Chat</a>
+                <p class="label">Gráfico de balance</p>
+                <h2 style="margin:0 0 8px; color:#fff;">Actividad económica</h2>
+                <p class="muted">Compara saldo actual, total apostado, ganancias netas y pérdidas acumuladas.</p>
+
+                <div class="dashboard-chart" aria-label="Gráfico de actividad del usuario">
+                    @foreach ($chartValues as $label => $value)
+                        @php($height = max(6, round(($value / $chartMax) * 100)))
+                        <div class="chart-col">
+                            <div class="chart-bar-wrap"><div class="chart-bar" style="height: {{ $height }}%;"></div></div>
+                            <div class="chart-label">{{ $label }}</div>
+                            <div class="chart-value">{{ $money($value) }}</div>
+                        </div>
+                    @endforeach
                 </div>
             </article>
 
             <article class="panel">
-                <p class="label">Cuenta</p>
-                <div class="list">
-                    <div class="list-item">
-                        <div>
-                            <strong>{{ auth()->user()->name }}</strong>
-                            <div class="muted">{{ auth()->user()->email }}</div>
-                        </div>
-                        <span class="badge activo">{{ strtoupper(auth()->user()->role) }}</span>
-                    </div>
+                <p class="label">Balance neto</p>
+                <p class="balance">{{ $money($dashboardStats['balance_neto'] ?? 0) }}</p>
+                <div class="mini-status">
+                    <div class="list-item"><span>Ganancia neta</span><strong>{{ $money($dashboardStats['ganancia_neta'] ?? 0) }}</strong></div>
+                    <div class="list-item"><span>Pérdida neta</span><strong>{{ $money($dashboardStats['perdida_neta'] ?? 0) }}</strong></div>
+                    <div class="list-item"><span>Total apostado</span><strong>{{ $money($dashboardStats['total_apostado'] ?? 0) }}</strong></div>
+                </div>
+                <div class="actions">
+                    <a class="btn" href="{{ route('private.games') }}">Ir a juegos</a>
+                    <a class="btn secondary" href="{{ route('billetera') }}">Ver billetera</a>
                 </div>
             </article>
         </section>
-            <section class="grid">
-                <a class="card card-link" href="{{ route('roulette.index') }}"><strong>Ruleta</strong><span>🎯</span></a>
-                <article class="card"><strong>Apuestas deportivas</strong><span>⚽</span></article>
-                <article class="card"><strong>Bingo</strong><span>🔢</span></article>
-                <article class="card"><strong>Slot machine</strong><span>🎰</span></article>
-            </section>
 
-        @if (auth()->user()->role === 'admin')
-            <section class="panel">
-                <p class="label">Administracion</p>
-                <a class="btn" href="{{ route('admin.panel') }}">Entrar al panel de administracion</a>
-            </section>
-        @endif
+        <section class="hero-grid">
+            <article class="panel">
+                <p class="label">Últimas apuestas</p>
+                @if ($recentBets->isEmpty())
+                    <p class="empty-state">Todavía no hay apuestas registradas.</p>
+                @else
+                    <div class="table-wrap">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Juego</th><th>Detalle</th><th>Monto</th><th>Estado</th><th>Fecha</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($recentBets as $bet)
+                                    <tr>
+                                        <td>{{ $bet->juego->nombre ?? ('Juego #' . $bet->juego_id) }}</td>
+                                        <td>{{ $bet->descripcion ?: ($bet->seleccion ?: '-') }}</td>
+                                        <td>{{ $money($bet->monto) }}</td>
+                                        <td><span class="badge {{ $bet->estado }}">{{ $bet->estadoEtiqueta() }}</span></td>
+                                        <td>{{ $bet->fecha ? $bet->fecha->format('d/m/Y H:i') : '-' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </article>
+
+            <article class="panel panel-highlight">
+                <p class="label">Accesos rápidos</p>
+                <div class="actions">
+                    <a class="btn" href="{{ route('private.games') }}">Juegos</a>
+                    <a class="btn secondary" href="{{ route('private.apuestas') }}">Mis apuestas</a>
+                    <a class="btn secondary" href="{{ route('private.notificaciones') }}">Notificaciones</a>
+                    <a class="btn secondary" href="{{ route('private.chat') }}">Chat</a>
+                    @if (auth()->user()->role === 'admin')
+                        <a class="btn secondary" href="{{ route('admin.panel') }}">Panel admin</a>
+                    @endif
+                </div>
+            </article>
+        </section>
     </div>
 @endsection

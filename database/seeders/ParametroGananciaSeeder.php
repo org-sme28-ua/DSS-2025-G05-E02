@@ -11,26 +11,45 @@ class ParametroGananciaSeeder extends Seeder
     public function run(): void
     {
         $now = Carbon::now();
+        $juegos = DB::table('juegos')->pluck('id', 'nombre');
 
-        DB::table('parametros_ganancia')->insert([
-            [
-                'multiplicacion_por_juego' => 1.50,
-                'bonus_por_racha' => 10.00,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            [
+        $parametros = [
+            'Ruleta' => [
                 'multiplicacion_por_juego' => 2.00,
+                'bonus_por_racha' => 10.00,
+            ],
+            'Slot Machine' => [
+                'multiplicacion_por_juego' => 3.00,
                 'bonus_por_racha' => 25.00,
+            ],
+            'Bingo' => [
+                'multiplicacion_por_juego' => 2.50,
+                'bonus_por_racha' => 15.00,
+            ],
+            'Predicción' => [
+                'multiplicacion_por_juego' => 2.00,
+                'bonus_por_racha' => 5.00,
+            ],
+        ];
+
+        $rows = [];
+
+        foreach ($parametros as $nombreJuego => $valores) {
+            if (!isset($juegos[$nombreJuego])) {
+                continue;
+            }
+
+            $rows[] = [
+                'juego_id' => $juegos[$nombreJuego],
+                'multiplicacion_por_juego' => $valores['multiplicacion_por_juego'],
+                'bonus_por_racha' => $valores['bonus_por_racha'],
                 'created_at' => $now,
                 'updated_at' => $now,
-            ],
-            [
-                'multiplicacion_por_juego' => 3.25,
-                'bonus_por_racha' => 50.00,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-        ]);
+            ];
+        }
+
+        if (!empty($rows)) {
+            DB::table('parametros_ganancia')->insert($rows);
+        }
     }
 }

@@ -1,3 +1,10 @@
+@php
+    $unreadChatMessages = 0;
+    if (auth()->check() && \Illuminate\Support\Facades\Schema::hasColumn('mensajes', 'read_at')) {
+        $unreadChatMessages = \App\Models\Mensaje::where('receptor_id', auth()->id())->whereNull('read_at')->count();
+    }
+@endphp
+
 <aside class="private-sidebar">
     <div class="sidebar-brand">
         <div class="sidebar-logo-icon">&#127920;</div>
@@ -5,9 +12,13 @@
     </div>
 
     <nav class="sidebar-nav">
-        <a class="sidebar-link {{ $activeNav === 'lobby' ? 'active' : '' }}" href="{{ route('dashboard') }}">
+        <a class="sidebar-link {{ $activeNav === 'dashboard' ? 'active' : '' }}" href="{{ route('dashboard') }}">
             <span class="sidebar-icon">&#128202;</span>
-            <span>Lobby</span>
+            <span>Dashboard</span>
+        </a>
+        <a class="sidebar-link {{ $activeNav === 'games' ? 'active' : '' }}" href="{{ route('private.games') }}">
+            <span class="sidebar-icon">&#127918;</span>
+            <span>Juegos</span>
         </a>
         <a class="sidebar-link {{ $activeNav === 'apuestas' ? 'active' : '' }}" href="{{ route('private.apuestas') }}">
             <span class="sidebar-icon">&#128203;</span>
@@ -24,19 +35,22 @@
         <a class="sidebar-link {{ $activeNav === 'chat' ? 'active' : '' }}" href="{{ route('private.chat') }}">
             <span class="sidebar-icon">&#128172;</span>
             <span>Chat</span>
+            @if ($unreadChatMessages > 0)
+                <span class="badge pendiente" style="margin-left:auto; padding:3px 8px;">{{ $unreadChatMessages }}</span>
+            @endif
         </a>
     </nav>
 
     <div class="sidebar-footer">
         <a class="sidebar-link {{ $activeNav === 'configuracion' ? 'active' : '' }}" href="{{ route('private.configuracion') }}">
             <span class="sidebar-icon">&#9881;</span>
-            <span>Configuracion</span>
+            <span>Configuración</span>
         </a>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button class="sidebar-link sidebar-button" type="submit">
                 <span class="sidebar-icon">&#128682;</span>
-                <span>Cerrar sesion</span>
+                <span>Cerrar sesión</span>
             </button>
         </form>
     </div>
