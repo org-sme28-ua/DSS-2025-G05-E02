@@ -134,4 +134,47 @@ class UserController extends Controller
 
         return response()->json(null, 204);
     }
+
+    public function quitarAmistadAdmin($ids)
+    {
+        // Separa los dos IDs que vienen en la URL (ejemplo: 4-7)
+        list($userId, $friendId) = explode('-', $ids);
+        
+        \DB::table('user_user')
+            ->where('user_id', $userId)
+            ->where('friend_id', $friendId)
+            ->delete();
+
+        return back()->with('success', 'Vínculo de amistad eliminado correctamente.');
+    }
+    public function addFriendFront(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email'
+        ], [
+            'email.required' => 'Debes introducir un email.',
+            'email.email' => 'El formato del email no es válido.'
+        ]);
+        
+        $friend = User::where('email', $request->email)->first();
+        $user = auth()->user();
+
+        // Validaciones de seguridad
+        if (!$friend) {
+            return back()->with('error', 'No se encontró ningún usuario con ese email.');
+        }
+
+        if ($friend->id === $user->id) {
+            return back()->with('error', 'No puedes añadirte a ti mismo como amigo.');
+        }
+
+        if ($user->amigos()->where('friend_id', $friend->id)->exists()) {
+            return back()->with('error', 'Este usuario ya está en tu lista de amigos.');
+        }
+
+        // Crear la relación (vínculo)
+        $user->amigos()->attach($friend->id);
+
+        return back()->with('success', '¡Genial! ' . $friend->name . ' ha sido añadido a tus amigos.');
+    }
 }
