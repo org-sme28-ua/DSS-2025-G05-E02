@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Apuesta extends Model
 {
@@ -12,10 +12,27 @@ class Apuesta extends Model
     protected $fillable = [
         'user_id',
         'juego_id',
+        'tipo',
+        'descripcion',
+        'seleccion',
+        'resultado',
         'monto',
         'cuota',
         'estado',
-        'fecha'
+        'fecha',
+        'balance_antes',
+        'balance_despues',
+        'resuelta_at',
+        'admin_id',
+    ];
+
+    protected $casts = [
+        'monto' => 'decimal:2',
+        'cuota' => 'decimal:2',
+        'balance_antes' => 'decimal:2',
+        'balance_despues' => 'decimal:2',
+        'fecha' => 'datetime',
+        'resuelta_at' => 'datetime',
     ];
 
     public function user()
@@ -28,10 +45,14 @@ class Apuesta extends Model
         return $this->belongsTo(Juego::class);
     }
 
-    // SCOPES
+    public function admin()
+    {
+        return $this->belongsTo(User::class, 'admin_id');
+    }
+
     public function scopeActivas($query)
     {
-        return $query->where('estado', 'pendiente');
+        return $query->whereIn('estado', ['pendiente', 'aceptada']);
     }
 
     public function scopeGanadas($query)
@@ -49,48 +70,82 @@ class Apuesta extends Model
         return $query->where('user_id', $userId);
     }
 
-    // Helpers
-    public function calcularGanancia()
+    public function calcularGananciaBruta(): float
     {
         if ($this->estado === 'ganada') {
-            return $this->monto * $this->cuota;
+            return (float) $this->monto * (float) $this->cuota;
         }
-        return 0;
+
+        return 0.0;
     }
 
-    // Lógica para liquidar la apuesta con resultado
+    public function calcularGananciaNeta(): float
+    {
+        if ($this->estado === 'ganada') {
+            return (float) $this->monto * ((float) $this->cuota - 1);
+        }
+
+        if ($this->estado === 'perdida') {
+            return -1 * (float) $this->monto;
+        }
+
+        return 0.0;
+    }
+
+    public function estadoEtiqueta(): string
+    {
+        return match ($this->estado) {
+            'pendiente' => 'Pendiente de revisión',
+            'aceptada' => 'Aceptada',
+            'rechazada' => 'Rechazada',
+            'ganada' => 'Ganada',
+            'perdida' => 'Perdida',
+            default => ucfirst((string) $this->estado),
+        };
+    }
+
     public function liquidar($resultado)
     {
-        if (!in_array($resultado, ['ganada', 'perdida'])) {
+        if (!in_array($resultado, ['ganada', 'perdida'], true)) {
             throw new \InvalidArgumentException("Resultado inválido para liquidar: $resultado");
         }
 
+        if (!in_array($this->estado, ['pendiente', 'aceptada'], true)) {
+            throw new \RuntimeException('La apuesta ya está resuelta o rechazada.');
+        }
+
         $this->estado = $resultado;
+        $this->resultado = $resultado === 'ganada' ? 'Resultado ganador' : 'Resultado perdedor';
+        $this->resuelta_at = now();
         $this->save();
 
         $user = $this->user;
 
         if ($resultado === 'ganada') {
-            $ganancia = $this->monto * $this->cuota;
-            // Añadir dinero a billetera
-            $user->billetera->saldo += $ganancia;
+            $ganancia = $this->calcularGananciaBruta();
+
+            if (!$user->billetera) {
+                $user->billetera()->create(['saldoDisponible' => 0, 'moneda' => 'EUR']);
+                $user->load('billetera');
+            }
+
+            $user->billetera->saldoDisponible += $ganancia;
             $user->billetera->save();
-            // Añadir puntos de fidelidad
+
             $puntos = intval($ganancia / 10);
             $user->sumarPuntosFidelidad($puntos);
-            // Actualizar ranking
             \App\Models\Ranking::actualizarRankingUsuario($user, $ganancia, $puntos);
-            $mensaje = "Tu apuesta fue ganada! Ganaste {$ganancia} y {$puntos} puntos de fidelidad.";
+
+            $mensaje = "Tu apuesta fue ganada. Ganaste {$ganancia} EUR y {$puntos} puntos de fidelidad.";
         } else {
-            $mensaje = "Tu apuesta fue perdida. Mejor suerte la próxima vez.";
+            $mensaje = 'Tu apuesta fue perdida. Mejor suerte la próxima vez.';
         }
 
-        // Crear notificación con resultado
         \App\Models\Notificacion::crearNotificacion(
             $user->id,
-            "Resultado de apuesta",
+            'Resultado de apuesta',
             $mensaje,
-            'info'
+            'apuesta'
         );
     }
 }

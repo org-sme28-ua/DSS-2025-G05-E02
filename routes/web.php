@@ -1,252 +1,250 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ApuestaController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BilleteraController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\JuegoController;
 use App\Http\Controllers\MensajeController;
 use App\Http\Controllers\NotificacionController;
+use App\Http\Controllers\ParametroGananciaController;
+use App\Http\Controllers\PredictionController;
 use App\Http\Controllers\RankingController;
+use App\Http\Controllers\RouletteController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\UserController;
-
 use App\Models\Apuesta;
-use App\Models\Chat;
-use App\Models\Juego;
-use App\Models\User;
+use App\Models\Billetera;
+use App\Models\Mensaje;
+use App\Models\Notificacion;
+use Illuminate\Support\Facades\Route;
 
 // ============================================================
 // RUTAS PÚBLICAS
 // ============================================================
+Route::view('/', 'public.home')->name('public.home');
 
-// --- HOME ---
-Route::get('/', function () {
-    return view('home', [
-        'juegos' => Juego::all(),
-        'ultimas_apuestas' => Apuesta::with(['user','juego'])->latest('fecha')->take(5)->get(),
-        'chats' => Chat::with('user')->latest()->take(5)->get(),
-    ]);
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
+
+    Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
+    Route::post('/register', [AuthController::class, 'register'])->name('register.store');
 });
+
+Route::post('/logout', [AuthController::class, 'logout'])
+    ->middleware('auth')
+    ->name('logout');
 
 // ============================================================
-// ADMIN PANEL (VISTAS)
+// RUTAS PRIVADAS
 // ============================================================
+Route::middleware('auth')->group(function () {
+    Route::get('/dashboard', function () {
+        $user = auth()->user();
 
-// --- ADMIN DASHBOARD ---
-Route::get('/admin', function () {
-    $usuarios = User::paginate(10);
-    return view('admin.usuarios.index', compact('usuarios'));
-})->name('usuarios.index');
+        $billetera = Billetera::firstOrCreate(
+            ['user_id' => $user->id],
+            ['saldoDisponible' => 0, 'moneda' => 'EUR']
+        );
 
-// --- ADMIN USUARIOS (vistas de edición) ---
-Route::get('/admin/usuarios/{user}/edit', function ($user) {
-    return "Formulario para editar al usuario: " . $user;
-})->name('usuarios.edit');
+        $gananciaNeta = (float) $user->apuestas()
+            ->where('estado', 'ganada')
+            ->selectRaw('COALESCE(SUM(monto * (cuota - 1)), 0) as total')
+            ->value('total');
 
-Route::delete('/admin/usuarios/{user}', function ($user) {
-    return "Usuario eliminado";
-})->name('usuarios.destroy');
+        $perdidaNeta = (float) $user->apuestas()
+            ->where('estado', 'perdida')
+            ->sum('monto');
 
-// --- ADMIN JUEGOS (vista) ---
-Route::get('/admin/juegos-lista', function() {
-    return "Lista de juegos (puedes crear una vista para esto luego)";
-})->name('juegos.index');
+        $dashboardStats = [
+            'saldo' => (float) $billetera->saldoDisponible,
+            'total_apostado' => (float) $user->apuestas()->sum('monto'),
+            'ganancia_neta' => $gananciaNeta,
+            'perdida_neta' => $perdidaNeta,
+            'balance_neto' => $gananciaNeta - $perdidaNeta,
+            'apuestas_activas' => $user->apuestas()->whereIn('estado', ['pendiente', 'aceptada'])->count(),
+            'apuestas_ganadas' => $user->apuestas()->where('estado', 'ganada')->count(),
+            'apuestas_perdidas' => $user->apuestas()->where('estado', 'perdida')->count(),
+            'notificaciones_nuevas' => $user->notificaciones()->where('leido', false)->count(),
+        ];
 
-// --- TABLAS DINÁMICAS ---
-Route::get('/admin/tabla/{tabla}', function ($tabla) {
-    $tablas = [
-        'users' => \App\Models\User::class,
-        'apuestas' => \App\Models\Apuesta::class,
-        'billeteras' => \App\Models\Billetera::class,
-        'chats' => \App\Models\Chat::class,
-        'juegos' => \App\Models\Juego::class,
-        'mensajes' => \App\Models\Mensaje::class,
-        'notificaciones' => \App\Models\Notificacion::class,
-        'rankings' => \App\Models\Ranking::class,
-        'settings' => \App\Models\Setting::class,
-    ];
+        $recentBets = $user->apuestas()
+            ->with('juego')
+            ->latest('fecha')
+            ->take(6)
+            ->get();
 
-    if (!array_key_exists($tabla, $tablas)) {
-        abort(404);
-    }
+        return view('dashboard', compact('dashboardStats', 'recentBets'));
+    })->name('dashboard');
 
-    $modelo = $tablas[$tabla];
-    $registros = $modelo::all();
+    Route::view('/juegos', 'games')->name('private.games');
 
-    return view('admin.table', [
-        'tablaActual' => $tabla,
-        'registros' => $registros,
-        'tablas' => array_keys($tablas),
-    ]);
-})->name('admin.tablas');
+    Route::get('/billetera', function () {
+        $user = auth()->user();
+        $billetera = Billetera::firstOrCreate(
+            ['user_id' => $user->id],
+            ['saldoDisponible' => 0, 'moneda' => 'EUR']
+        );
 
-// ============================================================
-// API RUTAS PARA ADMIN (CRUD para JavaScript)
-// ============================================================
+        $apuestas = $user->apuestas()
+            ->with('juego')
+            ->latest('fecha')
+            ->take(8)
+            ->get();
 
-// --- RUTAS PARA USUARIOS ---
-Route::prefix('admin')->group(function () {
-    Route::get('/usuarios/data', [UserController::class, 'getData'])->name('admin.usuarios.data');
-    Route::get('/usuarios/{user}', [UserController::class, 'ver'])->name('admin.usuarios.show');
-    Route::post('/usuarios', [UserController::class, 'crear'])->name('admin.usuarios.store');
-    Route::put('/usuarios/{user}', [UserController::class, 'actualizar'])->name('admin.usuarios.update');
-    Route::delete('/usuarios/{user}', [UserController::class, 'eliminar'])->name('admin.usuarios.destroy');
-});
+        return view('billetera', [
+            'billetera' => $billetera,
+            'apuestas' => $apuestas,
+            'totalApuestas' => $user->apuestas()->count(),
+            'apuestasPendientes' => $user->apuestas()->whereIn('estado', ['pendiente', 'aceptada'])->count(),
+            'apuestasGanadas' => $user->apuestas()->where('estado', 'ganada')->count(),
+        ]);
+    })->name('billetera');
 
-// --- RUTAS PARA APUESTAS ---
-Route::prefix('admin')->group(function () {
-Route::get('/apuestas/data', [ApuestaController::class, 'getData'])->name('admin.apuestas.data');    
-Route::get('/apuestas/{apuesta}', [ApuestaController::class, 'show'])->name('admin.apuestas.show');
-    Route::post('/apuestas', [ApuestaController::class, 'store'])->name('admin.apuestas.store');
-    Route::put('/apuestas/{apuesta}', [ApuestaController::class, 'update'])->name('admin.apuestas.update');
-    Route::delete('/apuestas/{apuesta}', [ApuestaController::class, 'destroy'])->name('admin.apuestas.destroy');
-});
+    Route::get('/mis-apuestas', function () {
+        $apuestas = auth()->user()->apuestas()
+            ->with('juego')
+            ->latest('fecha')
+            ->get();
 
-// --- RUTAS PARA JUEGOS ---
-Route::prefix('admin')->group(function () {
-    Route::get('/juegos/data', [JuegoController::class, 'listar'])->name('admin.juegos.data');
-    Route::get('/juegos/{juego}', [JuegoController::class, 'ver'])->name('admin.juegos.show');
-    Route::post('/juegos', [JuegoController::class, 'crear'])->name('admin.juegos.store');
-    Route::put('/juegos/{juego}', [JuegoController::class, 'actualizar'])->name('admin.juegos.update');
-    Route::delete('/juegos/{juego}', [JuegoController::class, 'eliminar'])->name('admin.juegos.destroy');
-});
+        return view('apuestas', compact('apuestas'));
+    })->name('private.apuestas');
 
-// --- RUTAS PARA BILLETERAS ---
-Route::prefix('admin')->group(function () {
-    Route::get('/billeteras/data', [BilleteraController::class, 'listar'])->name('admin.billeteras.data');
-    Route::get('/billeteras/{billetera}', [BilleteraController::class, 'ver'])->name('admin.billeteras.show');
-    Route::post('/billeteras', [BilleteraController::class, 'crear'])->name('admin.billeteras.store');
-    Route::put('/billeteras/{billetera}', [BilleteraController::class, 'actualizar'])->name('admin.billeteras.update');
-    Route::delete('/billeteras/{billetera}', [BilleteraController::class, 'eliminar'])->name('admin.billeteras.destroy');
-});
 
-// --- RUTAS PARA NOTIFICACIONES ---
-Route::prefix('admin')->group(function () {
-    Route::get('/notificaciones/data', [NotificacionController::class, 'getData'])->name('admin.notificaciones.data');
-    Route::get('/notificaciones/{notificacion}', [NotificacionController::class, 'show'])->name('admin.notificaciones.show');
-    Route::post('/notificaciones', [NotificacionController::class, 'store'])->name('admin.notificaciones.store');
-    Route::put('/notificaciones/{notificacion}', [NotificacionController::class, 'update'])->name('admin.notificaciones.update');
-    Route::delete('/notificaciones/{notificacion}', [NotificacionController::class, 'destroy'])->name('admin.notificaciones.destroy');
-});
+    Route::get('/rankings', function () {
+        $search = request('search', '');
+        $sort   = in_array(request('sort'), ['posicion','puntos','total_ganado','id']) ? request('sort') : 'posicion';
+        $dir    = request('dir', 'asc') === 'desc' ? 'desc' : 'asc';
+     
+        $rankings = \App\Models\Ranking::with('user')
+            ->when($search, function ($q) use ($search) {
+                $q->whereHas('user', function ($u) use ($search) {
+                    $u->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy($sort, $dir)
+            ->paginate(15)
+            ->withQueryString();
+     
+        // Top 3 para el podio (siempre por posición)
+        $top3 = \App\Models\Ranking::with('user')
+            ->orderBy('posicion')
+            ->take(3)
+            ->get();
+     
+        return view('rankings', compact('rankings', 'top3'));
+    })->name('private.rankings');
 
-// --- RUTAS PARA CHATS ---
-Route::prefix('admin')->group(function () {
-    Route::get('/chats/data', [ChatController::class, 'listar'])->name('admin.chats.data');
-    Route::get('/chats/{chat}', [ChatController::class, 'ver'])->name('admin.chats.show');
-    Route::post('/chats', [ChatController::class, 'crear'])->name('admin.chats.store');
-    Route::put('/chats/{chat}', [ChatController::class, 'actualizar'])->name('admin.chats.update');
-    Route::delete('/chats/{chat}', [ChatController::class, 'eliminar'])->name('admin.chats.destroy');
-});
 
-// --- RUTAS PARA MENSAJES ---
-Route::prefix('admin')->group(function () {
-    Route::get('/mensajes/data', [MensajeController::class, 'listar'])->name('admin.mensajes.data');
-    Route::get('/mensajes/{mensaje}', [MensajeController::class, 'ver'])->name('admin.mensajes.show');
-    Route::post('/mensajes', [MensajeController::class, 'crear'])->name('admin.mensajes.store');
-    Route::put('/mensajes/{mensaje}', [MensajeController::class, 'actualizar'])->name('admin.mensajes.update');
-    Route::delete('/mensajes/{mensaje}', [MensajeController::class, 'eliminar'])->name('admin.mensajes.destroy');
-});
 
-// --- RUTAS PARA RANKINGS ---
-Route::prefix('admin')->group(function () {
-    Route::get('/rankings/data', [RankingController::class, 'listar'])->name('admin.rankings.data');
-    Route::get('/rankings/{ranking}', [RankingController::class, 'ver'])->name('admin.rankings.show');
-    Route::post('/rankings', [RankingController::class, 'crear'])->name('admin.rankings.store');
-    Route::put('/rankings/{ranking}', [RankingController::class, 'actualizar'])->name('admin.rankings.update');
-    Route::delete('/rankings/{ranking}', [RankingController::class, 'eliminar'])->name('admin.rankings.destroy');
-});
 
-// --- RUTAS PARA SETTINGS ---
-Route::prefix('admin')->group(function () {
-    Route::get('/settings/data', [SettingController::class, 'getData'])->name('admin.settings.data');
-    Route::get('/settings/{setting}', [SettingController::class, 'show'])->name('admin.settings.show');
-    Route::post('/settings', [SettingController::class, 'store'])->name('admin.settings.store');
-    Route::put('/settings/{setting}', [SettingController::class, 'update'])->name('admin.settings.update');
-    Route::delete('/settings/{setting}', [SettingController::class, 'destroy'])->name('admin.settings.destroy');
-});
+    Route::get('/mis-notificaciones', function () {
+        $notificaciones = Notificacion::query()
+            ->where('user_id', auth()->id())
+            ->latest('fecha')
+            ->get();
 
-// ============================================================
-// API RUTAS ORIGINALES (sin prefijo admin)
-// ============================================================
+        return view('notificaciones', compact('notificaciones'));
+    })->name('private.notificaciones');
 
-// --- USUARIOS API ---
-Route::controller(UserController::class)->group(function () {
-    Route::get('users', 'listar');
-    Route::get('users/{user}', 'ver');
-    Route::post('users', 'crear');
-    Route::put('users/{user}', 'actualizar');
-    Route::delete('users/{user}', 'eliminar');
-});
+    Route::post('/mis-notificaciones/marcar-todas', function () {
+        Notificacion::where('user_id', auth()->id())->where('leido', false)->update(['leido' => true]);
+        return back()->with('success', 'Todas las notificaciones se han marcado como leídas.');
+    })->name('private.notificaciones.read_all');
 
-// --- APUESTAS API ---
-Route::controller(ApuestaController::class)->group(function () {
-    Route::get('apuestas', 'listar');
-    Route::get('apuestas/{apuesta}', 'ver');
-    Route::post('apuestas', 'crear');
-    Route::put('apuestas/{apuesta}', 'actualizar');
-    Route::delete('apuestas/{apuesta}', 'eliminar');
-});
+    Route::post('/mis-notificaciones/{notificacion}/leer', function (Notificacion $notificacion) {
+        abort_unless($notificacion->user_id === auth()->id(), 403);
+        $notificacion->update(['leido' => true]);
+        return back();
+    })->name('private.notificaciones.read');
 
-// --- JUEGOS API ---
-Route::controller(JuegoController::class)->group(function () {
-    Route::get('juegos', 'listar');
-    Route::get('juegos/{juego}', 'ver');
-    Route::post('juegos', 'crear');
-    Route::put('juegos/{juego}', 'actualizar');
-    Route::delete('juegos/{juego}', 'eliminar');
-});
+    Route::get('/chat', [ChatController::class, 'index'])->name('private.chat');
+    Route::post('/chat/start', [ChatController::class, 'start'])->name('private.chat.start');
+    Route::get('/chat/{chat}', [ChatController::class, 'showConversation'])->name('private.chat.show');
+    Route::post('/chat/{chat}/mensaje', [ChatController::class, 'sendMessage'])->name('private.chat.message');
 
-// --- BILLETERAS API ---
-Route::controller(BilleteraController::class)->group(function () {
-    Route::get('billeteras', 'listar');
-    Route::get('billeteras/{billetera}', 'ver');
-    Route::post('billeteras', 'crear');
-    Route::put('billeteras/{billetera}', 'actualizar');
-    Route::delete('billeteras/{billetera}', 'eliminar');
-});
+    Route::view('/configuracion', 'configuracion')->name('private.configuracion');
 
-// --- NOTIFICACIONES API ---
-Route::controller(NotificacionController::class)->group(function () {
-    Route::get('notificaciones', 'listar');
-    Route::get('notificaciones/{notificacion}', 'ver');
-    Route::post('notificaciones', 'crear');
-    Route::put('notificaciones/{notificacion}', 'actualizar');
-    Route::delete('notificaciones/{notificacion}', 'eliminar');
-});
+    Route::get('/ruleta', [RouletteController::class, 'index'])->name('roulette.index');
+    Route::post('/ruleta', [RouletteController::class, 'play'])->name('roulette.play');
 
-// --- CHATS API ---
-Route::controller(ChatController::class)->group(function () {
-    Route::get('chats', 'listar');
-    Route::get('chats/{chat}', 'ver');
-    Route::post('chats', 'crear');
-    Route::put('chats/{chat}', 'actualizar');
-    Route::delete('chats/{chat}', 'eliminar');
-});
+    Route::get('/prediccion', [PredictionController::class, 'index'])->name('prediction.index');
+    Route::post('/prediccion', [PredictionController::class, 'store'])->name('prediction.store');
 
-// --- MENSAJES API ---
-Route::controller(MensajeController::class)->group(function () {
-    Route::get('mensajes', 'listar');
-    Route::get('mensajes/{mensaje}', 'ver');
-    Route::post('mensajes', 'crear');
-    Route::put('mensajes/{mensaje}', 'actualizar');
-    Route::delete('mensajes/{mensaje}', 'eliminar');
-});
+    // ============================================================
+    // PANEL DE ADMINISTRACIÓN
+    // ============================================================
+    Route::get('/admin', [AdminController::class, 'index'])->name('admin.panel');
+    Route::get('/admin/usuarios/{user}/resumen', [AdminController::class, 'userSummary'])->name('admin.users.summary');
+    Route::post('/admin/apuestas/{apuesta}/resolver', [AdminController::class, 'resolvePrediction'])->name('admin.predictions.resolve');
 
-// --- RANKINGS API ---
-Route::controller(RankingController::class)->group(function () {
-    Route::get('rankings', 'listar');
-    Route::get('rankings/{ranking}', 'ver');
-    Route::post('rankings', 'crear');
-    Route::put('rankings/{ranking}', 'actualizar');
-    Route::delete('rankings/{ranking}', 'eliminar');
-});
+    // ============================================================
+    // API RUTAS PARA ADMIN (CRUD para JavaScript / pruebas)
+    // ============================================================
+    Route::prefix('admin')->group(function () {
+        Route::get('/usuarios/data', [UserController::class, 'getData'])->name('admin.usuarios.data');
+        Route::get('/usuarios/{user}', [UserController::class, 'ver'])->name('admin.usuarios.show');
+        Route::post('/usuarios', [UserController::class, 'crear'])->name('admin.usuarios.store');
+        Route::put('/usuarios/{user}', [UserController::class, 'actualizar'])->name('admin.usuarios.update');
+        Route::delete('/usuarios/{user}', [UserController::class, 'eliminar'])->name('admin.usuarios.destroy');
 
-// --- SETTINGS API ---
-Route::controller(SettingController::class)->group(function () {
-    Route::get('settings', 'listar');
-    Route::get('settings/{setting}', 'ver');
-    Route::post('settings', 'crear');
-    Route::put('settings/{setting}', 'actualizar');
-    Route::delete('settings/{setting}', 'eliminar');
+        Route::get('/apuestas/data', [ApuestaController::class, 'getData'])->name('admin.apuestas.data');
+        Route::get('/apuestas/{apuesta}', [ApuestaController::class, 'show'])->name('admin.apuestas.show');
+        Route::post('/apuestas', [ApuestaController::class, 'store'])->name('admin.apuestas.store');
+        Route::put('/apuestas/{apuesta}', [ApuestaController::class, 'update'])->name('admin.apuestas.update');
+        Route::delete('/apuestas/{apuesta}', [ApuestaController::class, 'destroy'])->name('admin.apuestas.destroy');
+
+        Route::get('/juegos/data', [JuegoController::class, 'getData'])->name('admin.juegos.data');
+        Route::get('/juegos/{juego}', [JuegoController::class, 'show'])->name('admin.juegos.show');
+        Route::post('/juegos', [JuegoController::class, 'store'])->name('admin.juegos.store');
+        Route::put('/juegos/{juego}', [JuegoController::class, 'update'])->name('admin.juegos.update');
+        Route::delete('/juegos/{juego}', [JuegoController::class, 'destroy'])->name('admin.juegos.destroy');
+
+        Route::get('/billeteras/data', [BilleteraController::class, 'getData'])->name('admin.billeteras.data');
+        Route::get('/billeteras/{billetera}', [BilleteraController::class, 'show'])->name('admin.billeteras.show');
+        Route::post('/billeteras', [BilleteraController::class, 'store'])->name('admin.billeteras.store');
+        Route::put('/billeteras/{billetera}', [BilleteraController::class, 'update'])->name('admin.billeteras.update');
+        Route::delete('/billeteras/{billetera}', [BilleteraController::class, 'destroy'])->name('admin.billeteras.destroy');
+
+        Route::get('/notificaciones/data', [NotificacionController::class, 'getData'])->name('admin.notificaciones.data');
+        Route::get('/notificaciones/{notificacion}', [NotificacionController::class, 'show'])->name('admin.notificaciones.show');
+        Route::post('/notificaciones', [NotificacionController::class, 'store'])->name('admin.notificaciones.store');
+        Route::put('/notificaciones/{notificacion}', [NotificacionController::class, 'update'])->name('admin.notificaciones.update');
+        Route::delete('/notificaciones/{notificacion}', [NotificacionController::class, 'destroy'])->name('admin.notificaciones.destroy');
+
+        Route::get('/chats/data', [ChatController::class, 'getData'])->name('admin.chats.data');
+        Route::get('/chats/{chat}', [ChatController::class, 'show'])->name('admin.chats.show');
+        Route::post('/chats', [ChatController::class, 'store'])->name('admin.chats.store');
+        Route::put('/chats/{chat}', [ChatController::class, 'update'])->name('admin.chats.update');
+        Route::delete('/chats/{chat}', [ChatController::class, 'destroy'])->name('admin.chats.destroy');
+
+        Route::get('/mensajes/data', [MensajeController::class, 'listar'])->name('admin.mensajes.data');
+        Route::get('/mensajes/{mensaje}', [MensajeController::class, 'ver'])->name('admin.mensajes.show');
+        Route::post('/mensajes', [MensajeController::class, 'crear'])->name('admin.mensajes.store');
+        Route::put('/mensajes/{mensaje}', [MensajeController::class, 'actualizar'])->name('admin.mensajes.update');
+        Route::delete('/mensajes/{mensaje}', [MensajeController::class, 'eliminar'])->name('admin.mensajes.destroy');
+
+
+
+        Route::get('/rankings/data', [RankingController::class, 'getData'])->name('admin.rankings.data');
+        Route::get('/rankings/{ranking}', [RankingController::class, 'show'])->name('admin.rankings.show');
+        Route::post('/rankings', [RankingController::class, 'store'])->name('admin.rankings.store');
+        Route::put('/rankings/{ranking}', [RankingController::class, 'update'])->name('admin.rankings.update');
+        Route::delete('/rankings/{ranking}', [RankingController::class, 'destroy'])->name('admin.rankings.destroy');
+
+        Route::get('/settings/data', [SettingController::class, 'getData'])->name('admin.settings.data');
+        Route::get('/settings/{setting}', [SettingController::class, 'show'])->name('admin.settings.show');
+        Route::post('/settings', [SettingController::class, 'store'])->name('admin.settings.store');
+        Route::put('/settings/{setting}', [SettingController::class, 'update'])->name('admin.settings.update');
+        Route::delete('/settings/{setting}', [SettingController::class, 'destroy'])->name('admin.settings.destroy');
+
+        Route::get('/parametros-ganancia/data', [ParametroGananciaController::class, 'getData'])->name('admin.parametros_ganancia.data');
+        Route::get('/parametros-ganancia/{parametro}', [ParametroGananciaController::class, 'show'])->name('admin.parametros_ganancia.show');
+        Route::post('/parametros-ganancia', [ParametroGananciaController::class, 'store'])->name('admin.parametros_ganancia.store');
+        Route::put('/parametros-ganancia/{parametro}', [ParametroGananciaController::class, 'update'])->name('admin.parametros_ganancia.update');
+        Route::delete('/parametros-ganancia/{parametro}', [ParametroGananciaController::class, 'destroy'])->name('admin.parametros_ganancia.destroy');
+    });
 });

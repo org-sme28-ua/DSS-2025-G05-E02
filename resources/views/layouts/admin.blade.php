@@ -1,3 +1,14 @@
+@php
+    $money = fn ($value) => number_format((float) $value, 2, ',', '.') . ' EUR';
+    $active = fn ($name) => $section === $name ? 'active' : '';
+    $statusClass = fn ($estado) => match ($estado) {
+        'ganada' => 'badge-success',
+        'perdida', 'rechazada' => 'badge-danger',
+        'pendiente', 'aceptada' => 'badge-warning',
+        default => 'badge-muted',
+    };
+    $sectionUrl = fn ($name, $extra = []) => route('admin.panel', array_merge(['section' => $name], $extra));
+@endphp
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -5,1057 +16,718 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title>Bookie 2.0 — Panel de Administración</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+<link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #7B1C1C;
-    --bg-dark: #5a1212;
-    --bg-card: #2a0a0a;
-    --bg-card2: #3d1212;
-    --sidebar: #4a1010;
-    --sidebar-active: #2a0606;
-    --accent: #c0392b;
-    --gold: #f0c040;
-    --text: #f5e6e6;
-    --text-muted: #c4a0a0;
-    --border: rgba(255,255,255,0.12);
-    --white: #ffffff;
-    --success: #2ecc71;
-    --danger: #e74c3c;
-    --warning: #f39c12;
-    --info: #3498db;
-    --btn-bg: rgba(255,255,255,0.10);
-    --btn-hover: rgba(255,255,255,0.18);
-    --input-bg: rgba(255,255,255,0.08);
-    --radius: 12px;
-    --radius-sm: 8px;
+    --bg:#1a0505; --bg-card:#2a0a0a; --bg-card2:#3d1212; --sidebar:#4a1010;
+    --sidebar-active:#2a0606; --accent:#c0392b; --gold:#f0c040; --text:#f5e6e6;
+    --text-muted:#c4a0a0; --border:rgba(255,255,255,.12); --success:#2ecc71;
+    --danger:#e74c3c; --warning:#f39c12; --info:#3498db; --radius:12px; --radius-sm:8px;
   }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'DM Sans',sans-serif; background:#1a0505; color:var(--text); min-height:100vh; }
-
-  .page { display:none; }
-  .page.active { display:flex; min-height:100vh; }
-
-  .sidebar {
-    width:252px; min-width:252px;
-    background:var(--sidebar);
-    display:flex; flex-direction:column;
-    position:sticky; top:0; height:100vh; overflow-y:auto;
-  }
-  .sidebar-logo {
-    display:flex; align-items:center; gap:10px;
-    padding:20px 20px 16px;
-    border-bottom:1px solid var(--border);
-  }
-  .logo-icon {
-    width:40px; height:40px;
-    background:var(--gold); border-radius:10px;
-    display:flex; align-items:center; justify-content:center;
-    font-size:20px;
-  }
-  .logo-text { font-family:'Playfair Display',serif; font-size:18px; color:var(--white); }
-  .logo-badge {
-    margin-left:auto; background:var(--accent);
-    color:white; font-size:10px; font-weight:600;
-    padding:2px 7px; border-radius:20px; letter-spacing:.5px;
-  }
-  .sidebar-section {
-    padding:10px 12px 4px;
-    font-size:10px; font-weight:600; letter-spacing:1.2px;
-    color:var(--text-muted); text-transform:uppercase;
-  }
-  .sidebar-nav { flex:1; padding:8px 12px; display:flex; flex-direction:column; gap:2px; }
-  .nav-item {
-    display:flex; align-items:center; gap:10px;
-    padding:9px 12px; border-radius:var(--radius-sm);
-    cursor:pointer; color:var(--text-muted);
-    font-size:13px; font-weight:500; transition:all .15s;
-    border:none; background:none; text-align:left; width:100%;
-  }
-  .nav-item:hover { background:var(--btn-bg); color:var(--text); }
-  .nav-item.active { background:var(--sidebar-active); color:var(--white); border-left:3px solid var(--gold); }
-  .nav-icon { font-size:15px; width:18px; text-align:center; }
-  .nav-divider { height:1px; background:var(--border); margin:8px 0; }
-  .sidebar-bottom { padding:10px 12px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:2px; }
-
-  .main { flex:1; display:flex; flex-direction:column; overflow:auto; background:#1a0505; }
-  .topbar {
-    background:#2a0808; padding:10px 24px;
-    display:flex; align-items:center; gap:14px;
-    border-bottom:1px solid var(--border);
-    position:sticky; top:0; z-index:10;
-  }
-  .topbar-title { font-family:'Playfair Display',serif; font-size:15px; color:var(--gold); white-space:nowrap; }
-  .topbar-search {
-    flex:1; background:var(--input-bg);
-    border:1px solid var(--border); border-radius:50px;
-    padding:7px 16px; color:var(--text); font-size:13px; font-family:inherit;
-  }
-  .topbar-search::placeholder { color:var(--text-muted); }
-  .topbar-search:focus { outline:none; border-color:rgba(255,255,255,0.28); }
-  .user-chip { display:flex; align-items:center; gap:8px; cursor:pointer; }
-  .user-avatar {
-    width:34px; height:34px; border-radius:50%;
-    background:linear-gradient(135deg,#c0392b,#e74c3c);
-    display:flex; align-items:center; justify-content:center;
-    font-weight:700; font-size:12px; color:white; border:2px solid var(--gold);
-  }
-  .content { padding:24px 28px; flex:1; }
-  .page-header { display:flex; align-items:center; gap:14px; margin-bottom:22px; }
-  .page-title { font-family:'Playfair Display',serif; font-size:26px; color:var(--white); flex:1; }
-  .page-subtitle { font-size:12px; color:var(--text-muted); margin-top:2px; }
-
-  .stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:22px; }
-  .stat-card {
-    background:var(--bg-card2); border-radius:var(--radius);
-    padding:16px 18px; border:1px solid var(--border);
-  }
-  .stat-label { font-size:11px; color:var(--text-muted); font-weight:600; letter-spacing:.5px; text-transform:uppercase; margin-bottom:6px; }
-  .stat-value { font-size:24px; font-weight:700; color:var(--white); }
-  .stat-delta { font-size:11px; margin-top:4px; }
-  .delta-up { color:var(--success); }
-  .delta-down { color:var(--danger); }
-
-  .table-wrap {
-    background:var(--bg-card); border-radius:var(--radius);
-    border:1px solid var(--border); overflow:hidden;
-  }
-  .toolbar {
-    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-    padding:14px 16px; border-bottom:1px solid var(--border);
-    background:var(--bg-card2);
-  }
-  .toolbar-right { margin-left:auto; display:flex; gap:8px; align-items:center; }
-  .input-sm {
-    background:var(--input-bg); border:1px solid var(--border);
-    border-radius:var(--radius-sm); padding:7px 12px;
-    color:var(--text); font-size:12px; font-family:inherit;
-  }
-  .input-sm:focus { outline:none; border-color:rgba(255,255,255,0.3); }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+  a { color:inherit; }
+  .admin-layout { display:flex; min-height:100vh; }
+  .sidebar { width:252px; min-width:252px; background:var(--sidebar); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
+  .sidebar-logo { display:flex; align-items:center; gap:10px; padding:20px 20px 16px; border-bottom:1px solid var(--border); }
+  .logo-icon { width:40px; height:40px; background:var(--gold); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+  .logo-text { font-family:'Playfair Display',serif; font-size:18px; color:white; }
+  .logo-badge { margin-left:auto; background:var(--accent); color:white; font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; }
+  .sidebar-section { padding:12px 14px 4px; font-size:10px; font-weight:700; letter-spacing:1.2px; color:var(--text-muted); text-transform:uppercase; }
+  .sidebar-nav { flex:1; padding:8px 12px; display:flex; flex-direction:column; gap:4px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-muted); font-size:13px; font-weight:600; text-decoration:none; transition:.15s; }
+  .nav-item:hover { background:rgba(255,255,255,.08); color:var(--text); }
+  .nav-item.active { background:var(--sidebar-active); color:white; border-left:3px solid var(--gold); }
+  .sidebar-bottom { padding:12px; border-top:1px solid var(--border); }
+  .main { flex:1; min-width:0; }
+  .topbar { background:#2a0808; padding:12px 24px; display:flex; align-items:center; gap:14px; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; }
+  .topbar-title { font-family:'Playfair Display',serif; font-size:16px; color:var(--gold); }
+  .topbar-spacer { flex:1; }
+  .user-chip { display:flex; align-items:center; gap:8px; color:var(--text-muted); font-weight:700; font-size:13px; }
+  .user-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#c0392b,#e74c3c); display:flex; align-items:center; justify-content:center; font-weight:900; color:white; border:2px solid var(--gold); }
+  .content { padding:24px 28px; }
+  .page-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:22px; }
+  .page-title { margin:0; font-family:'Playfair Display',serif; font-size:30px; color:white; }
+  .page-subtitle { margin:5px 0 0; font-size:13px; color:var(--text-muted); max-width:780px; line-height:1.5; }
+  .stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:22px; }
+  .stat-card { background:var(--bg-card2); border-radius:var(--radius); padding:16px 18px; border:1px solid var(--border); }
+  .stat-label { font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+  .stat-value { font-size:25px; font-weight:800; color:white; }
+  .grid-2 { display:grid; grid-template-columns:minmax(320px,1.1fr) minmax(280px,.9fr); gap:16px; align-items:start; }
+  .panel { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:18px; }
+  .panel-pad { padding:18px; }
+  .panel-title { margin:0 0 12px; font-size:16px; color:white; font-weight:800; }
+  .toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 16px; border-bottom:1px solid var(--border); background:var(--bg-card2); }
+  .input-sm { background:rgba(255,255,255,.08); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 12px; color:var(--text); font-size:12px; font-family:inherit; }
+  .input-sm:focus { outline:none; border-color:rgba(255,255,255,.3); }
   .input-sm::placeholder { color:var(--text-muted); }
   select.input-sm option { background:#2a0a0a; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  thead { background:var(--bg-card2); }
-  th {
-    padding:11px 14px; text-align:left; color:var(--text-muted);
-    font-weight:600; font-size:11px; letter-spacing:.6px; text-transform:uppercase;
-    border-bottom:1px solid var(--border); cursor:pointer; user-select:none;
-    white-space:nowrap;
-  }
-  th:hover { color:var(--text); }
-  th:last-child { cursor:default; }
-  td { padding:11px 14px; border-bottom:1px solid rgba(255,255,255,0.05); vertical-align:middle; }
-  tr:last-child td { border-bottom:none; }
-  tr:hover td { background:rgba(255,255,255,0.03); }
-  .sort-arrow { font-size:10px; margin-left:4px; opacity:.5; }
-  th.sorted .sort-arrow { opacity:1; color:var(--gold); }
-
-  .badge {
-    display:inline-block; padding:3px 9px; border-radius:20px;
-    font-size:11px; font-weight:600; letter-spacing:.3px;
-  }
-  .badge-success { background:rgba(46,204,113,.18); color:#2ecc71; border:1px solid rgba(46,204,113,.3); }
-  .badge-danger  { background:rgba(231,76,60,.18);  color:#e74c3c; border:1px solid rgba(231,76,60,.3); }
-  .badge-warning { background:rgba(243,156,18,.18); color:#f39c12; border:1px solid rgba(243,156,18,.3); }
-  .badge-info    { background:rgba(52,152,219,.18);  color:#3498db; border:1px solid rgba(52,152,219,.3); }
-  .badge-gold    { background:rgba(240,192,64,.18); color:#f0c040; border:1px solid rgba(240,192,64,.3); }
-  .badge-muted   { background:rgba(255,255,255,.08); color:#aaa; border:1px solid rgba(255,255,255,.1); }
-
-  .btn {
-    padding:7px 14px; border-radius:var(--radius-sm);
-    border:1px solid var(--border); background:var(--btn-bg);
-    color:var(--text); font-family:inherit; font-size:12px; font-weight:500;
-    cursor:pointer; transition:all .15s;
-    display:inline-flex; align-items:center; gap:5px;
-  }
-  .btn:hover { background:var(--btn-hover); }
+  .btn { padding:8px 14px; border-radius:var(--radius-sm); border:1px solid var(--border); background:rgba(255,255,255,.10); color:var(--text); font-family:inherit; font-size:12px; font-weight:700; cursor:pointer; transition:.15s; display:inline-flex; align-items:center; justify-content:center; gap:6px; text-decoration:none; line-height:1.1; white-space:nowrap; }
+  .btn:hover { background:rgba(255,255,255,.18); }
   .btn-primary { background:var(--accent); border-color:var(--accent); color:white; }
-  .btn-primary:hover { background:#a93226; }
-  .btn-danger { background:rgba(231,76,60,.18); border-color:rgba(231,76,60,.35); color:#e74c3c; }
-  .btn-danger:hover { background:rgba(231,76,60,.32); }
-  .btn-sm { padding:5px 10px; font-size:11px; }
-
-  .pagination { display:flex; align-items:center; gap:4px; padding:12px 16px; background:var(--bg-card2); border-top:1px solid var(--border); }
-  .page-btn {
-    width:30px; height:30px; border-radius:var(--radius-sm);
-    border:1px solid var(--border); background:var(--btn-bg);
-    color:var(--text); font-size:12px; cursor:pointer; transition:all .15s;
-    display:flex; align-items:center; justify-content:center;
-  }
-  .page-btn:hover:not([disabled]) { background:var(--btn-hover); }
-  .page-btn.active { background:var(--accent); border-color:var(--accent); color:white; font-weight:700; }
-  .page-btn[disabled] { opacity:.35; cursor:not-allowed; }
-  .page-info { margin-left:auto; font-size:11px; color:var(--text-muted); }
-
-  .modal-overlay {
-    display:none; position:fixed; inset:0;
-    background:rgba(0,0,0,.75); z-index:1000;
-    align-items:center; justify-content:center;
-    backdrop-filter:blur(3px);
-  }
-  .modal-overlay.open { display:flex; }
-  .modal {
-    background:var(--bg-card); border:1px solid var(--border);
-    border-radius:16px; padding:28px; width:min(520px,92vw);
-    max-height:90vh; overflow-y:auto;
-  }
-  .modal h2 {
-    font-family:'Playfair Display',serif; font-size:22px;
-    color:var(--white); margin-bottom:20px;
-    padding-bottom:14px; border-bottom:1px solid var(--border);
-  }
-  .confirm-modal {
-    background:var(--bg-card); border:1px solid rgba(231,76,60,.4);
-    border-radius:16px; padding:32px; width:360px; text-align:center;
-  }
-  .confirm-icon { font-size:40px; margin-bottom:12px; }
-  .confirm-modal h3 { font-size:18px; margin-bottom:8px; color:var(--white); }
-  .confirm-modal p { color:var(--text-muted); font-size:13px; margin-bottom:20px; }
-
-  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .form-group { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
-  .form-label { font-size:12px; font-weight:600; color:var(--text-muted); letter-spacing:.3px; }
-  .form-control {
-    background:var(--input-bg); border:1px solid var(--border);
-    border-radius:var(--radius-sm); padding:9px 12px;
-    color:var(--text); font-size:13px; font-family:inherit; width:100%;
-  }
-  .form-control:focus { outline:none; border-color:rgba(255,255,255,0.3); }
-  .form-control.error { border-color:var(--danger); }
-  .form-control::placeholder { color:var(--text-muted); }
-  .error-msg { font-size:11px; color:var(--danger); min-height:14px; }
-  .form-actions { display:flex; gap:10px; justify-content:flex-end; padding-top:16px; border-top:1px solid var(--border); margin-top:4px; }
-  .form-hint { font-size:11px; color:var(--text-muted); }
-
-  #toast {
-    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
-    background:#2a0a0a; border:1px solid var(--border); border-radius:10px;
-    padding:10px 20px; font-size:13px; color:var(--text);
-    opacity:0; transition:all .3s; z-index:9999; pointer-events:none; white-space:nowrap;
-  }
-  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-  #toast.success { border-color:rgba(46,204,113,.5); color:#2ecc71; }
-  #toast.danger  { border-color:rgba(231,76,60,.5);  color:#e74c3c; }
-
-  .activity-list { display:flex; flex-direction:column; gap:0; }
-  .activity-item {
-    display:flex; align-items:center; gap:12px;
-    padding:11px 0; border-bottom:1px solid rgba(255,255,255,0.05);
-  }
-  .activity-item:last-child { border-bottom:none; }
-  .activity-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-  .activity-text { font-size:12px; flex:1; }
-  .activity-time { font-size:11px; color:var(--text-muted); white-space:nowrap; }
-  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-
-  .tab-bar { display:flex; gap:4px; margin-bottom:18px; border-bottom:1px solid var(--border); padding-bottom:-1px; }
-  .tab-btn {
-    padding:8px 16px; border:none; background:none;
-    color:var(--text-muted); font-size:13px; font-family:inherit;
-    cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;
-  }
-  .tab-btn.active { color:var(--white); border-bottom-color:var(--gold); }
-
-  @media (max-width:768px) {
-    .sidebar { display:none; }
-    .form-row { grid-template-columns:1fr; }
-    .two-col { grid-template-columns:1fr; }
-  }
+  .btn-gold { background:var(--gold); border-color:var(--gold); color:#3b1212; }
+  .btn-danger { background:rgba(231,76,60,.18); border-color:rgba(231,76,60,.35); color:#ffadad; }
+  .btn-success { background:rgba(46,204,113,.18); border-color:rgba(46,204,113,.35); color:#9ff0bd; }
+  .btn-sm { padding:6px 10px; font-size:11px; min-height:30px; }
+  .table-scroll { width:100%; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { padding:12px 14px; text-align:left; color:var(--text-muted); font-weight:800; font-size:11px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  td { padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.06); vertical-align:middle; }
+  tr:hover td { background:rgba(255,255,255,.03); }
+  .muted { color:var(--text-muted); font-size:12px; line-height:1.45; }
+  .badge { display:inline-flex; align-items:center; padding:4px 9px; border-radius:20px; font-size:11px; font-weight:800; letter-spacing:.2px; white-space:nowrap; }
+  .badge-success { background:rgba(46,204,113,.18); color:#2ecc71; border:1px solid rgba(46,204,113,.3); }
+  .badge-danger { background:rgba(231,76,60,.18); color:#e74c3c; border:1px solid rgba(231,76,60,.3); }
+  .badge-warning { background:rgba(243,156,18,.18); color:#f39c12; border:1px solid rgba(243,156,18,.3); }
+  .badge-info { background:rgba(52,152,219,.18); color:#3498db; border:1px solid rgba(52,152,219,.3); }
+  .badge-muted { background:rgba(255,255,255,.08); color:#aaa; border:1px solid rgba(255,255,255,.1); }
+  table th:last-child, table td:last-child { text-align:right; }
+  td.actions, td.actions-cell { text-align:right; white-space:nowrap; min-width:260px; width:1%; vertical-align:middle; }
+  td.actions { display:table-cell; }
+  .action-buttons { display:inline-flex; justify-content:flex-end; align-items:center; gap:6px; flex-wrap:nowrap; min-height:32px; vertical-align:middle; }
+  .actions:not(td) { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center; }
+  .inline-form { display:inline-flex; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:nowrap; width:auto; min-height:34px; vertical-align:middle; }
+  .inline-form .input-sm { width:170px; max-width:170px; height:32px; }
+  .alert { padding:12px 14px; border-radius:var(--radius); margin-bottom:14px; border:1px solid var(--border); background:var(--bg-card2); }
+  .alert-success { color:#9ff0bd; } .alert-error { color:#ffadad; }
+  .pagination-wrap { padding:12px 16px; background:var(--bg-card2); border-top:1px solid var(--border); }
+  .pagination-wrap:empty { display:none; }
+  .custom-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .pagination-summary { color:var(--text-muted); font-size:12px; }
+  .pagination-buttons { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .page-btn { display:inline-flex; align-items:center; justify-content:center; min-width:34px; min-height:32px; padding:7px 10px; border-radius:10px; background:rgba(255,255,255,.08); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:12px; font-weight:800; }
+  .page-btn:hover { background:rgba(255,255,255,.16); }
+  .page-btn.active { background:var(--gold); border-color:var(--gold); color:#3b1212; }
+  .page-btn.disabled { opacity:.45; cursor:not-allowed; }
+  .admin-timeline { display:grid; gap:14px; margin-top:14px; }
+  .timeline-line-chart { position:relative; min-height:300px; padding:14px; border:1px solid var(--border); border-radius:14px; background:rgba(255,255,255,.04); overflow-x:auto; }
+  .line-chart-svg { display:block; width:100%; min-width:760px; height:280px; }
+  .chart-grid { stroke:rgba(255,255,255,.10); stroke-width:1; }
+  .chart-axis { stroke:rgba(255,255,255,.24); stroke-width:1.5; }
+  .chart-line { fill:none; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+  .chart-line.apostado { stroke:var(--gold); }
+  .chart-line.ganado { stroke:var(--success); }
+  .chart-line.perdido { stroke:var(--danger); }
+  .chart-point { stroke:#2a0a0a; stroke-width:2; vector-effect:non-scaling-stroke; }
+  .chart-point.apostado { fill:var(--gold); }
+  .chart-point.ganado { fill:var(--success); }
+  .chart-point.perdido { fill:var(--danger); }
+  .chart-label { fill:var(--text-muted); font-size:12px; font-weight:800; }
+  .chart-value-label { fill:var(--text-muted); font-size:11px; }
+  .chart-legend { display:flex; gap:14px; flex-wrap:wrap; color:var(--text-muted); font-size:12px; margin-bottom:8px; }
+  .legend-dot { width:10px; height:10px; display:inline-block; border-radius:50%; margin-right:6px; background:var(--gold); }
+  .legend-dot.green { background:var(--success); }
+  .legend-dot.red { background:var(--danger); }
+  .summary-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.74); z-index:1000; align-items:center; justify-content:center; padding:20px; }
+  .summary-modal.open { display:flex; }
+  .modal-box { width:min(760px,96vw); max-height:86vh; overflow:auto; background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:22px; box-shadow:0 30px 80px rgba(0,0,0,.35); }
+  .modal-head { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:16px; }
+  .mini-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin:12px 0; }
+  .mini-card { background:var(--bg-card2); border:1px solid var(--border); border-radius:12px; padding:12px; }
+  .mini-card b { display:block; font-size:18px; color:white; margin-top:4px; }
+  @media (max-width:980px) { .admin-layout { flex-direction:column; } .sidebar { width:auto; min-width:0; height:auto; position:static; } .grid-2 { grid-template-columns:1fr; } .content { padding:18px; } }
+  @media (max-width:760px) { .inline-form { flex-wrap:wrap; justify-content:flex-start; } td.actions, td.actions-cell { white-space:normal; min-width:210px; } .action-buttons { flex-wrap:wrap; justify-content:flex-end; } }
 </style>
 </head>
 <body>
-
-<!-- ======================== PAGE: ADMIN DASHBOARD ======================== -->
-<div class="page active" id="page-admin-dashboard">
+<div class="admin-layout">
   <aside class="sidebar">
     <div class="sidebar-logo"><div class="logo-icon">🎰</div><span class="logo-text">Bookie 2.0</span><span class="logo-badge">ADMIN</span></div>
     <nav class="sidebar-nav">
       <div class="sidebar-section">Panel</div>
-      <button class="nav-item active" onclick="goTo('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
-      <div class="nav-divider"></div>
+      <a class="nav-item {{ $active('resumen') }}" href="{{ $sectionUrl('resumen') }}">📊 Resumen</a>
       <div class="sidebar-section">Gestión</div>
-      <button class="nav-item" onclick="goTo('usuarios')"><span class="nav-icon">👥</span> Usuarios</button>
-      <button class="nav-item" onclick="goTo('juegos')"><span class="nav-icon">🎮</span> Juegos</button>
-      <button class="nav-item" onclick="goTo('apuestas')"><span class="nav-icon">📋</span> Apuestas</button>
-      <button class="nav-item" onclick="goTo('billeteras')"><span class="nav-icon">💳</span> Billeteras</button>
-      <button class="nav-item" onclick="goTo('notificaciones')"><span class="nav-icon">🔔</span> Notificaciones</button>
-      <button class="nav-item" onclick="goTo('chats')"><span class="nav-icon">💬</span> Chats / Mensajes</button>
-      <button class="nav-item" onclick="goTo('rankings')"><span class="nav-icon">🏆</span> Rankings</button>
-      <button class="nav-item" onclick="goTo('settings')"><span class="nav-icon">⚙️</span> Settings</button>
+      <a class="nav-item {{ $active('usuarios') }}" href="{{ $sectionUrl('usuarios') }}">👥 Usuarios</a>
+      <a class="nav-item {{ $active('apuestas') }}" href="{{ $sectionUrl('apuestas') }}">📋 Apuestas</a>
+      <a class="nav-item {{ $active('predicciones') }}" href="{{ $sectionUrl('predicciones') }}">🔮 Predicciones</a>
+      <a class="nav-item {{ $active('juegos') }}" href="{{ $sectionUrl('juegos') }}">🎮 Juegos</a>
+      <a class="nav-item {{ $active('billeteras') }}" href="{{ $sectionUrl('billeteras') }}">💳 Billeteras</a>
+      <a class="nav-item {{ $active('notificaciones') }}" href="{{ $sectionUrl('notificaciones') }}">🔔 Notificaciones</a>
+<a class="nav-item {{ $active('rankings') }}" href="{{ $sectionUrl('rankings') }}">🏆 Rankings</a>
     </nav>
     <div class="sidebar-bottom">
-      <button class="nav-item"><span class="nav-icon">⚙</span> Configuración</button>
-      <button class="nav-item"><span class="nav-icon">🚪</span> Cerrar sesión</button>
+      <a class="nav-item" href="{{ route('dashboard') }}">↩ Volver al dashboard</a>
+      <form method="POST" action="{{ route('logout') }}">@csrf<button class="nav-item" style="border:0;background:transparent;width:100%;cursor:pointer;" type="submit">🚪 Cerrar sesión</button></form>
     </div>
   </aside>
-  <div class="main">
+
+  <main class="main">
     <div class="topbar">
-      <span class="topbar-title">Dashboard</span>
-      <input class="topbar-search" placeholder="🔍 Buscar en el panel...">
-      <div class="user-chip"><div class="user-avatar">AD</div><span style="font-size:13px;font-weight:500;">Admin</span></div>
+      <span class="topbar-title">Panel de Administración</span>
+      <div class="topbar-spacer"></div>
+      <div class="user-chip"><div class="user-avatar">{{ strtoupper(substr(auth()->user()->name, 0, 2)) }}</div><span>{{ auth()->user()->name }}</span></div>
     </div>
+
     <div class="content">
-      <div class="page-header"><div><div class="page-title">Panel de Administración</div><div class="page-subtitle">Visión general del sistema · Bookie 2.0</div></div></div>
-      <div class="stats-row">
-        <div class="stat-card"><div class="stat-label">Usuarios totales</div><div class="stat-value" id="stat-usuarios">0</div></div>
-        <div class="stat-card"><div class="stat-label">Apuestas activas</div><div class="stat-value" id="stat-apuestas">0</div></div>
-        <div class="stat-card"><div class="stat-label">Juegos disponibles</div><div class="stat-value" id="stat-juegos">0</div></div>
-      </div>
-      <div class="two-col">
-        <div class="table-wrap"><div class="toolbar"><span>Actividad reciente</span></div><div style="padding:16px;" id="actividad-reciente">Cargando...</div></div>
-        <div class="table-wrap"><div class="toolbar"><span>Acceso rápido</span></div><div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <button class="btn" style="flex-direction:column;padding:16px;" onclick="goTo('usuarios')"><span style="font-size:22px;">👥</span><span>Usuarios</span></button>
-          <button class="btn" style="flex-direction:column;padding:16px;" onclick="goTo('juegos')"><span style="font-size:22px;">🎮</span><span>Juegos</span></button>
-          <button class="btn" style="flex-direction:column;padding:16px;" onclick="goTo('apuestas')"><span style="font-size:22px;">📋</span><span>Apuestas</span></button>
-          <button class="btn" style="flex-direction:column;padding:16px;" onclick="goTo('settings')"><span style="font-size:22px;">⚙️</span><span>Settings</span></button>
-        </div></div>
-      </div>
-    </div>
-  </div>
-</div>
+      @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+      @if (session('error'))<div class="alert alert-error">{{ session('error') }}</div>@endif
 
-<!-- ======================== PAGE: ADMIN USUARIOS ======================== -->
-<div class="page" id="page-admin-usuarios">
-  <aside class="sidebar">
-    <div class="sidebar-logo"><div class="logo-icon">🎰</div><span class="logo-text">Bookie 2.0</span><span class="logo-badge">ADMIN</span></div>
-    <nav class="sidebar-nav">
-      <div class="sidebar-section">Panel</div>
-      <button class="nav-item" onclick="goTo('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
-      <div class="nav-divider"></div>
-      <div class="sidebar-section">Gestión</div>
-      <button class="nav-item active" onclick="goTo('usuarios')"><span class="nav-icon">👥</span> Usuarios</button>
-      <button class="nav-item" onclick="goTo('juegos')"><span class="nav-icon">🎮</span> Juegos</button>
-      <button class="nav-item" onclick="goTo('apuestas')"><span class="nav-icon">📋</span> Apuestas</button>
-      <button class="nav-item" onclick="goTo('billeteras')"><span class="nav-icon">💳</span> Billeteras</button>
-      <button class="nav-item" onclick="goTo('notificaciones')"><span class="nav-icon">🔔</span> Notificaciones</button>
-      <button class="nav-item" onclick="goTo('chats')"><span class="nav-icon">💬</span> Chats / Mensajes</button>
-      <button class="nav-item" onclick="goTo('rankings')"><span class="nav-icon">🏆</span> Rankings</button>
-      <button class="nav-item" onclick="goTo('settings')"><span class="nav-icon">⚙️</span> Settings</button>
-    </nav>
-    <div class="sidebar-bottom">
-      <button class="nav-item"><span class="nav-icon">⚙</span> Configuración</button>
-      <button class="nav-item"><span class="nav-icon">🚪</span> Cerrar sesión</button>
-    </div>
-  </aside>
-  <div class="main">
-    <div class="topbar"><span class="topbar-title">Gestión de Usuarios</span><input class="topbar-search" placeholder="🔍 Buscar..."><div class="user-chip"><div class="user-avatar">AD</div><span>Admin</span></div></div>
-    <div class="content">
-      <div class="page-header"><div><div class="page-title">Usuarios</div><div class="page-subtitle">Gestión completa de jugadores y operadores</div></div><button class="btn btn-primary" onclick="openNewModal('usuarios')">＋ Nuevo usuario</button></div>
-      <div class="table-wrap">
-        <div class="toolbar">
-          <input class="input-sm" placeholder="🔍 Buscar por nombre, email..." style="width:220px;" id="search-usuarios" oninput="filterRender('usuarios')">
-          <select class="input-sm" id="filter-vip-u" onchange="filterRender('usuarios')"><option value="">Todos los niveles VIP</option><option value="0">Sin VIP</option><option value="1">VIP 1</option><option value="2">VIP 2</option><option value="3">VIP 3</option></select>
-          <div class="toolbar-right"><span id="count-usuarios"></span></div>
-        </div>
-        <table><thead><tr><th onclick="sortRender('usuarios','id',this)">ID <span class="sort-arrow">⇅</span></th><th onclick="sortRender('usuarios','name',this)">Nombre <span class="sort-arrow">⇅</span></th><th onclick="sortRender('usuarios','email',this)">Email <span class="sort-arrow">⇅</span></th><th onclick="sortRender('usuarios','puntos_fidelidad',this)">Puntos fidelidad <span class="sort-arrow">⇅</span></th><th onclick="sortRender('usuarios','nivel_vip',this)">Nivel VIP <span class="sort-arrow">⇅</span></th><th>Acciones</th></tr></thead><tbody id="tbody-usuarios"></tbody></table>
-        <div class="pagination" id="pag-usuarios"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ======================== PAGE: ADMIN NOTIFICACION ======================== -->
-
-<div class="page" id="page-admin-notificaciones">
-  <aside class="sidebar">
-    <div class="sidebar-logo"><div class="logo-icon">🎰</div><span class="logo-text">Bookie 2.0</span><span class="logo-badge">ADMIN</span></div>
-    <nav class="sidebar-nav">
-      <div class="sidebar-section">Panel</div>
-      <button class="nav-item" onclick="goTo('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
-      <div class="nav-divider"></div>
-      <div class="sidebar-section">Gestión</div>
-      <button class="nav-item" onclick="goTo('usuarios')"><span class="nav-icon">👥</span> Usuarios</button>
-      <button class="nav-item" onclick="goTo('juegos')"><span class="nav-icon">🎮</span> Juegos</button>
-      <button class="nav-item" onclick="goTo('apuestas')"><span class="nav-icon">📋</span> Apuestas</button>
-      <button class="nav-item" onclick="goTo('billeteras')"><span class="nav-icon">💳</span> Billeteras</button>
-      <button class="nav-item active" onclick="goTo('notificaciones')"><span class="nav-icon">🔔</span> Notificaciones</button>
-      <button class="nav-item" onclick="goTo('chats')"><span class="nav-icon">💬</span> Chats / Mensajes</button>
-      <button class="nav-item" onclick="goTo('rankings')"><span class="nav-icon">🏆</span> Rankings</button>
-      <button class="nav-item" onclick="goTo('settings')"><span class="nav-icon">⚙️</span> Settings</button>
-    </nav>
-  </aside>
-  <div class="main">
-    <div class="topbar"><span class="topbar-title">Gestión de Notificaciones</span><input class="topbar-search" placeholder="🔍 Buscar..."><div class="user-chip"><div class="user-avatar">AD</div><span>Admin</span></div></div>
-    <div class="content">
-      <div class="page-header">
-        <div><div class="page-title">Notificaciones</div><div class="page-subtitle">Alertas y mensajes del sistema</div></div>
-        <button class="btn btn-primary" onclick="openNewModal('notificaciones')">＋ Nueva Notificación</button>
-      </div>
-      <div class="table-wrap">
-        <div class="toolbar">
-          <input class="input-sm" placeholder="🔍 Buscar título o usuario..." style="width:250px;" id="search-notificaciones" oninput="filterRender('notificaciones')">
-          <select class="input-sm" id="filter-tipo-n" onchange="filterRender('notificaciones')">
-            <option value="">Todos los tipos</option>
-            <option value="apuesta">Apuesta</option>
-            <option value="promo">Promo</option>
-            <option value="alerta">Alerta</option>
-            <option value="info">Info</option>
-          </select>
-          <select class="input-sm" id="filter-leido-n" onchange="filterRender('notificaciones')">
-            <option value="">Estado lectura</option>
-            <option value="true">Leídas</option>
-            <option value="false">No leídas</option>
-          </select>
-          <div class="toolbar-right"><span id="count-notificaciones"></span></div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th onclick="sortRender('notificaciones','id',this)">ID ⇅</th>
-              <th>Usuario</th>
-              <th onclick="sortRender('notificaciones','tipo',this)">Tipo ⇅</th>
-              <th onclick="sortRender('notificaciones','titulo',this)">Título ⇅</th>
-              <th onclick="sortRender('notificaciones','leido',this)">Leído ⇅</th>
-              <th onclick="sortRender('notificaciones','fecha',this)">Fecha ⇅</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-notificaciones"></tbody>
-        </table>
-        <div class="pagination" id="pag-notificaciones"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-notificacion">
-  <div class="modal">
-    <h2 id="title-notificacion">Nueva Notificación</h2>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">ID Usuario *</label>
-        <input type="number" class="form-control" id="n-user_id">
-        <div class="error-msg" id="err-n-user_id"></div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Tipo *</label>
-        <select class="form-control" id="n-tipo">
-          <option value="alerta">Alerta</option>
-          <option value="promo">Promo</option>
-          <option value="apuesta">Apuesta</option>
-          <option value="info">Info</option>
-          <option value="mensaje">Mensaje</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Título *</label>
-      <input type="text" class="form-control" id="n-titulo">
-      <div class="error-msg" id="err-n-titulo"></div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Mensaje</label>
-      <textarea class="form-control" id="n-mensaje" rows="3"></textarea>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Leído</label>
-        <select class="form-control" id="n-leido">
-          <option value="false">No</option>
-          <option value="true">Sí</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Fecha *</label>
-        <input type="date" class="form-control" id="n-fecha">
-        <div class="error-msg" id="err-n-fecha"></div>
-      </div>
-    </div>
-    <div class="form-actions">
-      <button class="btn" onclick="closeModal('modal-notificacion')">Cancelar</button>
-      <button class="btn btn-primary" onclick="submitForm('notificaciones')">Guardar</button>
-    </div>
-  </div>
-</div>
-
-<!-- ======================== PAGE: ADMIN APUESTAS ======================== -->
-<div class="page" id="page-admin-apuestas">
-  <aside class="sidebar">
-    <div class="sidebar-logo"><div class="logo-icon">🎰</div><span class="logo-text">Bookie 2.0</span><span class="logo-badge">ADMIN</span></div>
-    <nav class="sidebar-nav">
-      <div class="sidebar-section">Panel</div>
-      <button class="nav-item" onclick="goTo('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
-      <div class="nav-divider"></div>
-      <div class="sidebar-section">Gestión</div>
-      <button class="nav-item" onclick="goTo('usuarios')"><span class="nav-icon">👥</span> Usuarios</button>
-      <button class="nav-item" onclick="goTo('juegos')"><span class="nav-icon">🎮</span> Juegos</button>
-      <button class="nav-item active" onclick="goTo('apuestas')"><span class="nav-icon">📋</span> Apuestas</button>
-      <button class="nav-item" onclick="goTo('billeteras')"><span class="nav-icon">💳</span> Billeteras</button>
-      <button class="nav-item" onclick="goTo('notificaciones')"><span class="nav-icon">🔔</span> Notificaciones</button>
-      <button class="nav-item" onclick="goTo('chats')"><span class="nav-icon">💬</span> Chats / Mensajes</button>
-      <button class="nav-item" onclick="goTo('rankings')"><span class="nav-icon">🏆</span> Rankings</button>
-      <button class="nav-item" onclick="goTo('settings')"><span class="nav-icon">⚙️</span> Settings</button>
-    </nav>
-    <div class="sidebar-bottom">
-      <button class="nav-item"><span class="nav-icon">⚙</span> Configuración</button>
-      <button class="nav-item"><span class="nav-icon">🚪</span> Cerrar sesión</button>
-    </div>
-  </aside>
-  <div class="main">
-    <div class="topbar">
-      <span class="topbar-title">Gestión de Apuestas</span>
-      <input class="topbar-search" placeholder="🔍 Buscar...">
-      <div class="user-chip"><div class="user-avatar">AD</div><span>Admin</span></div>
-    </div>
-    <div class="content">
       <div class="page-header">
         <div>
-          <div class="page-title">Apuestas</div>
-          <div class="page-subtitle">Historial y gestión de tickets</div>
+          <h1 class="page-title">{{ ucfirst($section) }}</h1>
+          <p class="page-subtitle">Control de usuarios, apuestas, juegos y predicciones sin añadir tablas nuevas. Las predicciones y la ruleta se guardan en <strong>apuestas</strong>.</p>
         </div>
-        <button class="btn btn-primary" onclick="openNewModal('apuestas')">＋ Nueva Apuesta</button>
       </div>
-      <div class="table-wrap">
-        <div class="toolbar">
-          <input class="input-sm" placeholder="🔍 Buscar usuario o juego..." style="width:250px;" id="search-apuestas" oninput="filterRender('apuestas')">
-          <select class="input-sm" id="filter-estado-a" onchange="filterRender('apuestas')">
-            <option value="">Todos los estados</option>
-            <option value="pendiente">Pendientes</option>
-            <option value="ganada">Ganadas</option>
-            <option value="perdida">Perdidas</option>
+
+      <section class="stats-row">
+        <article class="stat-card"><div class="stat-label">Usuarios</div><div class="stat-value">{{ $stats['usuarios'] }}</div></article>
+        <article class="stat-card"><div class="stat-label">Apuestas totales</div><div class="stat-value">{{ $stats['apuestas_total'] }}</div></article>
+        <article class="stat-card"><div class="stat-label">Pendientes</div><div class="stat-value">{{ $stats['apuestas_pendientes'] }}</div></article>
+        <article class="stat-card"><div class="stat-label">Predicciones por aceptar</div><div class="stat-value">{{ $stats['predicciones_pendientes'] }}</div></article>
+        <article class="stat-card"><div class="stat-label">Total apostado</div><div class="stat-value">{{ $money($stats['total_apostado']) }}</div></article>
+        <article class="stat-card"><div class="stat-label">Saldo total usuarios</div><div class="stat-value">{{ $money($stats['saldo_total']) }}</div></article>
+      </section>
+
+      @if ($section === 'resumen')
+        <div class="grid-2">
+          <section class="panel">
+            <div class="panel-pad">
+              <h2 class="panel-title">Usuarios con más actividad</h2>
+              <p class="muted">Pulsa “Resumen” para ver apuestas por juego, dinero apostado, ganado y perdido.</p>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Usuario</th><th>Apuestas</th><th>Total apostado</th><th>Saldo</th><th>Acciones</th></tr></thead>
+                <tbody>
+                  @forelse ($topUsers as $usuario)
+                    <tr>
+                      <td><strong>{{ $usuario->name }}</strong><div class="muted">{{ $usuario->email }}</div></td>
+                      <td>{{ $usuario->apuestas_count }}</td>
+                      <td>{{ $money($usuario->total_apostado ?? 0) }}</td>
+                      <td>{{ $money(optional($usuario->billetera)->saldoDisponible ?? 0) }}</td>
+                      <td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showUserSummary({{ $usuario->id }})">Resumen</button><a class="btn btn-sm" href="{{ $sectionUrl('apuestas', ['user_id' => $usuario->id]) }}">Apuestas</a></div></td>
+                    </tr>
+                  @empty
+                    <tr><td colspan="5" class="muted">No hay usuarios.</td></tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-pad">
+              <h2 class="panel-title">Balance general</h2>
+              <div class="mini-grid">
+                <div class="mini-card"><span class="muted">Ganado neto usuarios</span><b>{{ $money($stats['total_ganado_neto']) }}</b></div>
+                <div class="mini-card"><span class="muted">Perdido usuarios</span><b>{{ $money($stats['total_perdido']) }}</b></div>
+                <div class="mini-card"><span class="muted">Balance global casa</span><b>{{ $money($stats['balance_casa']) }}</b></div>
+              </div>
+              <div class="actions">
+                <a class="btn btn-gold" href="{{ $sectionUrl('predicciones', ['pred_estado' => 'pendiente']) }}">Revisar predicciones pendientes</a>
+                <a class="btn" href="{{ $sectionUrl('apuestas') }}">Ver todas las apuestas</a>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel">
+          <div class="panel-pad">
+            <h2 class="panel-title">Evolución económica de los últimos 14 días</h2>
+            <p class="muted">El gráfico usa solo la tabla <strong>apuestas</strong> y muestra una única gráfica temporal con tres líneas: dinero apostado, ganado por usuarios y perdido por usuarios.</p>
+            @php
+              $timeline = collect($adminTimeline ?? []);
+              $chartWidth = 1000;
+              $chartHeight = 280;
+              $leftPad = 58;
+              $rightPad = 24;
+              $topPad = 24;
+              $bottomPad = 48;
+              $plotWidth = $chartWidth - $leftPad - $rightPad;
+              $plotHeight = $chartHeight - $topPad - $bottomPad;
+              $maxTimeline = max(1, $timeline->max(fn ($row) => max(
+                  (float) $row['apostado'],
+                  (float) $row['ganado_usuarios'],
+                  (float) $row['perdido_usuarios']
+              )));
+              $pointLine = function (string $key) use ($timeline, $maxTimeline, $leftPad, $topPad, $plotWidth, $plotHeight) {
+                  $count = max(1, $timeline->count() - 1);
+
+                  return $timeline->values()->map(function ($row, $index) use ($key, $maxTimeline, $leftPad, $topPad, $plotWidth, $plotHeight, $count) {
+                      $x = $leftPad + (($plotWidth / $count) * $index);
+                      $y = $topPad + $plotHeight - (((float) $row[$key] / $maxTimeline) * $plotHeight);
+
+                      return round($x, 2) . ',' . round($y, 2);
+                  })->implode(' ');
+              };
+              $chartSeries = [
+                  'apostado' => ['label' => 'Total apostado', 'class' => 'apostado', 'points' => $pointLine('apostado')],
+                  'ganado_usuarios' => ['label' => 'Ganado por usuarios', 'class' => 'ganado', 'points' => $pointLine('ganado_usuarios')],
+                  'perdido_usuarios' => ['label' => 'Perdido por usuarios', 'class' => 'perdido', 'points' => $pointLine('perdido_usuarios')],
+              ];
+            @endphp
+            <div class="chart-legend">
+              <span><i class="legend-dot"></i>Total apostado</span>
+              <span><i class="legend-dot green"></i>Ganado por usuarios</span>
+              <span><i class="legend-dot red"></i>Perdido por usuarios</span>
+            </div>
+            <div class="admin-timeline">
+              <div class="timeline-line-chart" aria-label="Gráfico temporal del panel de administración">
+                <svg class="line-chart-svg" viewBox="0 0 {{ $chartWidth }} {{ $chartHeight }}" preserveAspectRatio="none" role="img">
+                  <title>Evolución de dinero apostado, ganado y perdido por usuarios</title>
+                  @foreach ([0, .25, .5, .75, 1] as $step)
+                    @php
+                      $y = $topPad + $plotHeight - ($plotHeight * $step);
+                      $value = $maxTimeline * $step;
+                    @endphp
+                    <line class="chart-grid" x1="{{ $leftPad }}" y1="{{ $y }}" x2="{{ $chartWidth - $rightPad }}" y2="{{ $y }}" />
+                    <text class="chart-value-label" x="8" y="{{ $y + 4 }}">{{ number_format($value, 0, ',', '.') }}</text>
+                  @endforeach
+
+                  <line class="chart-axis" x1="{{ $leftPad }}" y1="{{ $topPad }}" x2="{{ $leftPad }}" y2="{{ $topPad + $plotHeight }}" />
+                  <line class="chart-axis" x1="{{ $leftPad }}" y1="{{ $topPad + $plotHeight }}" x2="{{ $chartWidth - $rightPad }}" y2="{{ $topPad + $plotHeight }}" />
+
+                  @foreach ($chartSeries as $series)
+                    <polyline class="chart-line {{ $series['class'] }}" points="{{ $series['points'] }}" />
+                  @endforeach
+
+                  @foreach ($timeline->values() as $index => $row)
+                    @php
+                      $count = max(1, $timeline->count() - 1);
+                      $x = $leftPad + (($plotWidth / $count) * $index);
+                    @endphp
+                    @foreach ($chartSeries as $key => $series)
+                      @php
+                        $y = $topPad + $plotHeight - (((float) $row[$key] / $maxTimeline) * $plotHeight);
+                      @endphp
+                      <circle class="chart-point {{ $series['class'] }}" cx="{{ $x }}" cy="{{ $y }}" r="4">
+                        <title>{{ $row['label'] }} · {{ $series['label'] }}: {{ $money($row[$key]) }}</title>
+                      </circle>
+                    @endforeach
+                    @if ($index === 0 || $index === $timeline->count() - 1 || $index % 3 === 0)
+                      <text class="chart-label" x="{{ $x }}" y="{{ $chartHeight - 16 }}" text-anchor="middle">{{ $row['label'] }}</text>
+                    @endif
+                  @endforeach
+                </svg>
+              </div>
+            </div>
+          </div>
+        </section>
+      @endif
+
+      @if ($section === 'usuarios')
+        <section class="panel">
+          <div class="panel-pad"><h2 class="panel-title">Usuarios</h2><p class="muted">Desde aquí puedes ver resumen por usuario o filtrar sus apuestas.</p></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>ID</th><th>Usuario</th><th>Rol</th><th>Apuestas</th><th>Total apostado</th><th>Saldo</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody>
+                @foreach ($usuarios as $usuario)
+                  <tr>
+                    <td>#{{ $usuario->id }}</td>
+                    <td><strong>{{ $usuario->name }}</strong><div class="muted">{{ $usuario->email }}</div></td>
+                    <td><span class="badge badge-info">{{ strtoupper($usuario->role) }}</span></td>
+                    <td>{{ $usuario->apuestas_count }}</td>
+                    <td>{{ $money($usuario->total_apostado ?? 0) }}</td>
+                    <td>{{ $money(optional($usuario->billetera)->saldoDisponible ?? 0) }}</td>
+                    <td><span class="badge badge-warning">{{ $usuario->apuestas_pendientes_count }} activas</span></td>
+                    <td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showUserSummary({{ $usuario->id }})">Resumen</button><a class="btn btn-sm" href="{{ $sectionUrl('apuestas', ['user_id' => $usuario->id]) }}">Apuestas</a><a class="btn btn-sm" href="{{ $sectionUrl('predicciones', ['pred_user_id' => $usuario->id]) }}">Predicciones</a></div></td>
+                  </tr>
+                @endforeach
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $usuarios])</div>
+        </section>
+      @endif
+
+      @if ($section === 'apuestas')
+        <section class="panel">
+          <form class="toolbar" method="GET" action="{{ route('admin.panel') }}">
+            <input type="hidden" name="section" value="apuestas">
+            <input class="input-sm" name="search" value="{{ request('search') }}" placeholder="Buscar usuario, juego, detalle..." style="width:240px;">
+            <select class="input-sm" name="estado"><option value="">Estado</option>@foreach(['pendiente','aceptada','rechazada','ganada','perdida'] as $estado)<option value="{{ $estado }}" @selected(request('estado') === $estado)>{{ ucfirst($estado) }}</option>@endforeach</select>
+            <select class="input-sm" name="tipo"><option value="">Tipo</option>@foreach($tipos as $tipo)<option value="{{ $tipo }}" @selected(request('tipo') === $tipo)>{{ ucfirst($tipo) }}</option>@endforeach</select>
+            <select class="input-sm" name="user_id"><option value="">Usuario</option>@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}" @selected((string)request('user_id') === (string)$usuario->id)>{{ $usuario->name }}</option>@endforeach</select>
+            <select class="input-sm" name="juego_id"><option value="">Juego</option>@foreach($juegos as $juego)<option value="{{ $juego->id }}" @selected((string)request('juego_id') === (string)$juego->id)>{{ $juego->nombre }}</option>@endforeach</select>
+            <button class="btn btn-primary" type="submit">Filtrar</button>
+            <a class="btn" href="{{ $sectionUrl('apuestas') }}">Limpiar</a>
+          </form>
+          @include('partials.admin-apuestas-table', ['apuestas' => $apuestas, 'money' => $money, 'statusClass' => $statusClass, 'sectionUrl' => $sectionUrl])
+        </section>
+      @endif
+
+      @if ($section === 'predicciones')
+        <section class="panel">
+          <form class="toolbar" method="GET" action="{{ route('admin.panel') }}">
+            <input type="hidden" name="section" value="predicciones">
+            <select class="input-sm" name="pred_estado"><option value="">Estado</option>@foreach(['pendiente','aceptada','rechazada','ganada','perdida'] as $estado)<option value="{{ $estado }}" @selected(request('pred_estado') === $estado)>{{ ucfirst($estado) }}</option>@endforeach</select>
+            <select class="input-sm" name="pred_user_id"><option value="">Usuario</option>@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}" @selected((string)request('pred_user_id') === (string)$usuario->id)>{{ $usuario->name }}</option>@endforeach</select>
+            <button class="btn btn-primary" type="submit">Filtrar</button>
+            <a class="btn" href="{{ $sectionUrl('predicciones') }}">Limpiar</a>
+          </form>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>ID</th><th>Usuario</th><th>Predicción</th><th>Monto</th><th>Estado</th><th>Resultado</th><th>Admin</th><th>Acciones</th></tr></thead>
+              <tbody>
+                @forelse ($predicciones as $bet)
+                  <tr>
+                    <td>#{{ $bet->id }}</td>
+                    <td><strong>{{ $bet->user->name ?? ('User #' . $bet->user_id) }}</strong><div class="muted">{{ $bet->user->email ?? '' }}</div></td>
+                    <td><strong>{{ $bet->descripcion }}</strong><div class="muted">Selección: {{ $bet->seleccion }}</div><div class="muted">{{ $bet->fecha ? $bet->fecha->format('d/m/Y H:i') : '-' }}</div></td>
+                    <td>{{ $money($bet->monto) }}<div class="muted">Cuota {{ number_format((float)$bet->cuota, 2, ',', '.') }}</div></td>
+                    <td><span class="badge {{ $statusClass($bet->estado) }}">{{ $bet->estadoEtiqueta() }}</span></td>
+                    <td>{{ $bet->resultado ?: '-' }}</td>
+                    <td>{{ $bet->admin->name ?? '-' }}</td>
+                    <td class="actions-cell">
+                      @if ($bet->estado === 'pendiente')
+                        <form class="inline-form" method="POST" action="{{ route('admin.predictions.resolve', $bet) }}">
+                          @csrf
+                          <input class="input-sm" name="resultado" placeholder="Comentario opcional">
+                          <button class="btn btn-success btn-sm" name="action" value="aceptar">Aceptar</button>
+                          <button class="btn btn-danger btn-sm" name="action" value="rechazar">Rechazar</button>
+                        </form>
+                      @elseif ($bet->estado === 'aceptada')
+                        <form class="inline-form" method="POST" action="{{ route('admin.predictions.resolve', $bet) }}">
+                          @csrf
+                          <input class="input-sm" name="resultado" placeholder="Resultado real">
+                          <button class="btn btn-success btn-sm" name="action" value="ganada">Ganada</button>
+                          <button class="btn btn-danger btn-sm" name="action" value="perdida">Perdida</button>
+                        </form>
+                      @else
+                        <span class="muted">Sin acciones</span>
+                      @endif
+                    </td>
+                  </tr>
+                @empty
+                  <tr><td colspan="8" class="muted">No hay predicciones con estos filtros.</td></tr>
+                @endforelse
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $predicciones])</div>
+        </section>
+      @endif
+
+      @if ($section === 'juegos')
+        <section class="panel">
+          <div class="panel-pad"><h2 class="panel-title">Juegos</h2><p class="muted">La antigua tarjeta de Deportes se ha sustituido por Predicción en la pestaña de Juegos.</p></div>
+          <div class="table-scroll"><table><thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Estado</th><th>Apuestas</th><th>Total apostado</th><th>Acciones</th></tr></thead><tbody>
+            @foreach($juegosAdmin as $juego)
+              <tr><td>#{{ $juego->id }}</td><td><strong>{{ $juego->nombre }}</strong></td><td>{{ $juego->categoria }}</td><td><span class="badge badge-info">{{ $juego->estado }}</span></td><td>{{ $juego->apuestas_count }}</td><td>{{ $money($juego->total_apostado ?? 0) }}</td><td class="actions"><div class="action-buttons"><a class="btn btn-sm" href="{{ $sectionUrl('apuestas', ['juego_id' => $juego->id]) }}">Ver apuestas</a></div></td></tr>
+            @endforeach
+          </tbody></table></div>
+          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $juegosAdmin])</div>
+        </section>
+      @endif
+
+      @if ($section === 'billeteras')
+        <section class="panel">
+          <div class="panel-pad"><h2 class="panel-title">Billeteras</h2><p class="muted">Saldos actuales de usuarios.</p></div>
+          <div class="table-scroll"><table><thead><tr><th>ID</th><th>Usuario</th><th>Saldo</th><th>Moneda</th><th>Acciones</th></tr></thead><tbody>
+            @foreach($billeteras as $wallet)
+              <tr><td>#{{ $wallet->id }}</td><td><strong>{{ $wallet->user->name ?? ('User #' . $wallet->user_id) }}</strong></td><td>{{ $money($wallet->saldoDisponible) }}</td><td>{{ $wallet->moneda }}</td><td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showUserSummary({{ $wallet->user_id }})">Resumen usuario</button></div></td></tr>
+            @endforeach
+          </tbody></table></div>
+          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $billeteras])</div>
+        </section>
+      @endif
+
+      @if ($section === 'notificaciones')
+        <section class="panel">
+          <div class="panel-pad"><h2 class="panel-title">Notificaciones</h2><p class="muted">Mensajes enviados a usuarios por apuestas, predicciones y sistema.</p></div>
+          <div class="table-scroll"><table><thead><tr><th>ID</th><th>Usuario</th><th>Tipo</th><th>Título</th><th>Mensaje</th><th>Leída</th><th>Fecha</th></tr></thead><tbody>
+            @foreach($notificaciones as $notificacion)
+              <tr><td>#{{ $notificacion->id }}</td><td>{{ $notificacion->user->name ?? ('User #' . $notificacion->user_id) }}</td><td>{{ $notificacion->tipo }}</td><td><strong>{{ $notificacion->titulo }}</strong></td><td class="muted">{{ $notificacion->mensaje }}</td><td><span class="badge {{ $notificacion->leido ? 'badge-success' : 'badge-warning' }}">{{ $notificacion->leido ? 'Sí' : 'No' }}</span></td><td>{{ $notificacion->fecha ? \Illuminate\Support\Carbon::parse($notificacion->fecha)->format('d/m/Y H:i') : '-' }}</td></tr>
+            @endforeach
+          </tbody></table></div>
+          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $notificaciones])</div>
+        </section>
+      @endif
+{{-- ══════════════════════════════════════════════════════════
+           SECCIÓN RANKINGS — pegar antes de </div></main> en admin.blade.php
+           ══════════════════════════════════════════════════════════ --}}
+      @if ($section === 'rankings')
+
+        {{-- ── Toolbar búsqueda + ordenación ── --}}
+        <form method="GET" action="{{ route('admin.panel') }}" class="toolbar" style="border-radius:var(--radius) var(--radius) 0 0;">
+          <input type="hidden" name="section" value="rankings">
+          <input  class="input-sm" name="search" placeholder="🔍  Buscar jugador..." style="width:200px;"
+                  value="{{ request('search') }}">
+          <select class="input-sm" name="sort" onchange="this.form.submit()">
+            <option value="posicion"     {{ request('sort','posicion')==='posicion'     ? 'selected':'' }}>Ordenar: Posición</option>
+            <option value="puntos"       {{ request('sort')==='puntos'                  ? 'selected':'' }}>Ordenar: Puntos</option>
+            <option value="total_ganado" {{ request('sort')==='total_ganado'            ? 'selected':'' }}>Ordenar: Total ganado</option>
+            <option value="id"           {{ request('sort')==='id'                      ? 'selected':'' }}>Ordenar: ID</option>
           </select>
-          <div class="toolbar-right"><span id="count-apuestas"></span></div>
+          <select class="input-sm" name="dir" onchange="this.form.submit()">
+            <option value="asc"  {{ request('dir','asc')==='asc'  ? 'selected':'' }}>↑ Ascendente</option>
+            <option value="desc" {{ request('dir')==='desc'       ? 'selected':'' }}>↓ Descendente</option>
+          </select>
+          <button type="submit" class="btn btn-primary">Buscar</button>
+          <a href="{{ $sectionUrl('rankings') }}" class="btn">Limpiar</a>
+          <div style="margin-left:auto;">
+            <button type="button" class="btn btn-gold" onclick="document.getElementById('modal-ranking-crear').style.display='flex'">
+              + Nueva entrada
+            </button>
+          </div>
+        </form>
+
+        {{-- ── Tabla ── --}}
+        <section class="panel" style="border-radius:0 0 var(--radius) var(--radius);margin-top:0;">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  @php
+                    $s = request('sort','posicion');
+                    $d = request('dir','asc');
+                    $sortCols = ['posicion'=>'Posición','user_id'=>'Jugador','puntos'=>'Puntos','total_ganado'=>'Total ganado'];
+                  @endphp
+                  @foreach($sortCols as $col => $lbl)
+                  @php
+                    $newDir = ($s===$col && $d==='asc') ? 'desc' : 'asc';
+                    $arrow  = $s===$col ? ($d==='asc' ? ' ↑' : ' ↓') : '';
+                  @endphp
+                  <th>
+                    <a href="{{ route('admin.panel') }}?{{ http_build_query(array_merge(request()->except(['sort','dir','page']),['section'=>'rankings','sort'=>$col,'dir'=>$newDir])) }}"
+                       style="color:inherit;text-decoration:none;">
+                      {{ $lbl }}{{ $arrow }}
+                    </a>
+                  </th>
+                  @endforeach
+                  <th style="text-align:right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @forelse($rankings as $r)
+                <tr>
+                  {{-- Posición con medalla --}}
+                  <td>
+                    @if($r->posicion === 1)      <span style="font-size:18px;">🥇</span> <strong style="color:var(--gold);">1º</strong>
+                    @elseif($r->posicion === 2)  <span style="font-size:18px;">🥈</span> <strong style="color:#b0bec5;">2º</strong>
+                    @elseif($r->posicion === 3)  <span style="font-size:18px;">🥉</span> <strong style="color:#cd7f32;">3º</strong>
+                    @else                        <strong style="color:var(--text-muted);">#{{ $r->posicion }}</strong>
+                    @endif
+                  </td>
+                  {{-- Jugador --}}
+                  <td>
+                    <strong>{{ $r->user->name ?? '—' }}</strong>
+                    <div class="muted">{{ $r->user->email ?? 'ID #'.$r->user_id }}</div>
+                  </td>
+                  {{-- Puntos --}}
+                  <td>
+                    <span style="font-size:16px;font-weight:800;color:var(--gold);">{{ number_format($r->puntos) }}</span>
+                    <span class="muted"> pts</span>
+                  </td>
+                  {{-- Total ganado --}}
+                  <td>
+                    <span style="font-weight:700;color:var(--success);">
+                      {{ number_format($r->total_ganado, 2, ',', '.') }} EUR
+                    </span>
+                  </td>
+                  {{-- Acciones --}}
+                  <td class="actions">
+                    <div class="action-buttons">
+                      {{-- Botón editar: abre modal inline --}}
+                      <button class="btn btn-sm"
+                              onclick="abrirEditarRanking({{ $r->id }}, {{ $r->user_id }}, {{ $r->posicion }}, {{ $r->puntos }}, {{ $r->total_ganado }})">
+                        ✏️ Editar
+                      </button>
+                      {{-- Borrar --}}
+                      <form method="POST"
+                            action="{{ route('admin.rankings.destroy', $r->id) }}"
+                            onsubmit="return confirm('¿Eliminar ranking de {{ addslashes($r->user->name ?? 'este usuario') }}?')"
+                            style="display:inline;">
+                        @csrf @method('DELETE')
+                        <button type="submit" class="btn btn-sm btn-danger">🗑 Eliminar</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                @empty
+                <tr>
+                  <td colspan="5" class="muted" style="text-align:center;padding:36px;">
+                    No hay entradas en el ranking
+                    @if(request('search')) para "<strong>{{ request('search') }}</strong>" @endif.
+                  </td>
+                </tr>
+                @endforelse
+              </tbody>
+            </table>
+          </div>
+
+          {{-- Paginación --}}
+          <div class="pagination-wrap">
+            @include('partials.pagination', ['paginator' => $rankings])
+          </div>
+        </section>
+
+        {{-- ════════════════════════════════════
+             MODAL CREAR RANKING
+             ════════════════════════════════════ --}}
+        <div id="modal-ranking-crear"
+             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.74);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+          <div style="width:min(500px,95vw);background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.4);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+              <h2 class="panel-title" style="margin:0;">+ Nueva entrada de ranking</h2>
+              <button class="btn" onclick="document.getElementById('modal-ranking-crear').style.display='none'">✕ Cerrar</button>
+            </div>
+            <form method="POST" action="{{ route('admin.rankings.store') }}">
+              @csrf
+              <div style="display:grid;gap:14px;">
+                <div>
+                  <label class="stat-label">Usuario *</label>
+                  <select name="user_id" class="input-sm" style="width:100%;margin-top:6px;" required>
+                    <option value="">Selecciona un usuario</option>
+                    @foreach($usuariosAdmin as $u)
+                      <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
+                    @endforeach
+                  </select>
+                  @error('user_id') <div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</div> @enderror
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                  <div>
+                    <label class="stat-label">Posición *</label>
+                    <input type="number" name="posicion" class="input-sm" style="width:100%;margin-top:6px;"
+                           value="{{ old('posicion', 1) }}" min="1" required placeholder="Ej: 1">
+                    @error('posicion') <div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</div> @enderror
+                  </div>
+                  <div>
+                    <label class="stat-label">Puntos *</label>
+                    <input type="number" name="puntos" class="input-sm" style="width:100%;margin-top:6px;"
+                           value="{{ old('puntos', 0) }}" min="0" required placeholder="Ej: 1500">
+                    @error('puntos') <div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</div> @enderror
+                  </div>
+                </div>
+                <div>
+                  <label class="stat-label">Total ganado (EUR) *</label>
+                  <input type="number" name="total_ganado" class="input-sm" style="width:100%;margin-top:6px;"
+                         value="{{ old('total_ganado', 0) }}" min="0" step="0.01" required placeholder="Ej: 250.00">
+                  @error('total_ganado') <div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</div> @enderror
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+                <button type="button" class="btn" onclick="document.getElementById('modal-ranking-crear').style.display='none'">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar ranking</button>
+              </div>
+            </form>
+          </div>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th onclick="sortRender('apuestas','id',this)">ID <span class="sort-arrow">⇅</span></th>
-              <th>Usuario</th>
-              <th>Juego</th>
-              <th onclick="sortRender('apuestas','monto',this)">Monto <span class="sort-arrow">⇅</span></th>
-              <th onclick="sortRender('apuestas','cuota',this)">Cuota <span class="sort-arrow">⇅</span></th>
-              <th onclick="sortRender('apuestas','estado',this)">Estado <span class="sort-arrow">⇅</span></th>
-              <th onclick="sortRender('apuestas','fecha',this)">Fecha <span class="sort-arrow">⇅</span></th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-apuestas"></tbody>
-        </table>
-        <div class="pagination" id="pag-apuestas"></div>
-      </div>
-    </div>
-  </div>
-</div>
 
-<!-- ======================== PAGE: ADMIN SETTINGS ======================== -->
-<div class="page" id="page-admin-settings">
-  <aside class="sidebar">
-    <div class="sidebar-logo"><div class="logo-icon">🎰</div><span class="logo-text">Bookie 2.0</span><span class="logo-badge">ADMIN</span></div>
-    <nav class="sidebar-nav">
-      <div class="sidebar-section">Panel</div>
-      <button class="nav-item" onclick="goTo('dashboard')"><span class="nav-icon">📊</span> Dashboard</button>
-      <div class="nav-divider"></div>
-      <div class="sidebar-section">Gestión</div>
-      <button class="nav-item" onclick="goTo('usuarios')"><span class="nav-icon">👥</span> Usuarios</button>
-      <button class="nav-item" onclick="goTo('juegos')"><span class="nav-icon">🎮</span> Juegos</button>
-      <button class="nav-item" onclick="goTo('apuestas')"><span class="nav-icon">📋</span> Apuestas</button>
-      <button class="nav-item" onclick="goTo('billeteras')"><span class="nav-icon">💳</span> Billeteras</button>
-      <button class="nav-item" onclick="goTo('notificaciones')"><span class="nav-icon">🔔</span> Notificaciones</button>
-      <button class="nav-item" onclick="goTo('chats')"><span class="nav-icon">💬</span> Chats / Mensajes</button>
-      <button class="nav-item" onclick="goTo('rankings')"><span class="nav-icon">🏆</span> Rankings</button>
-      <button class="nav-item active" onclick="goTo('settings')"><span class="nav-icon">⚙️</span> Settings</button>
-    </nav>
-    <div class="sidebar-bottom">
-      <button class="nav-item"><span class="nav-icon">⚙</span> Configuración</button>
-      <button class="nav-item"><span class="nav-icon">🚪</span> Cerrar sesión</button>
-    </div>
-  </aside>
-  <div class="main">
-    <div class="topbar"><span class="topbar-title">Configuración del Sistema</span><input class="topbar-search" placeholder="🔍 Buscar..."><div class="user-chip"><div class="user-avatar">AD</div><span>Admin</span></div></div>
-    <div class="content">
-      <div class="page-header"><div><div class="page-title">Settings</div><div class="page-subtitle">Configuración general del sistema</div></div><button class="btn btn-primary" onclick="openNewModal('settings')">＋ Nueva configuración</button></div>
-      <div class="table-wrap">
-        <div class="toolbar">
-          <input class="input-sm" placeholder="🔍 Buscar por clave, descripción..." style="width:250px;" id="search-settings" oninput="filterRender('settings')">
-          <select class="input-sm" id="filter-activo-s" onchange="filterRender('settings')"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select>
-          <div class="toolbar-right"><span id="count-settings"></span></div>
+        {{-- ════════════════════════════════════
+             MODAL EDITAR RANKING
+             ════════════════════════════════════ --}}
+        <div id="modal-ranking-editar"
+             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.74);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+          <div style="width:min(500px,95vw);background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.4);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+              <h2 class="panel-title" style="margin:0;">✏️ Editar ranking</h2>
+              <button class="btn" onclick="document.getElementById('modal-ranking-editar').style.display='none'">✕ Cerrar</button>
+            </div>
+            <form method="POST" id="form-editar-ranking" action="">
+              @csrf @method('PUT')
+              <div style="display:grid;gap:14px;">
+                <div>
+                  <label class="stat-label">Usuario</label>
+                  <select name="user_id" id="edit-rk-user" class="input-sm" style="width:100%;margin-top:6px;" required>
+                    @foreach($usuariosAdmin as $u)
+                      <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
+                    @endforeach
+                  </select>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                  <div>
+                    <label class="stat-label">Posición *</label>
+                    <input type="number" name="posicion" id="edit-rk-posicion" class="input-sm"
+                           style="width:100%;margin-top:6px;" min="1" required>
+                  </div>
+                  <div>
+                    <label class="stat-label">Puntos *</label>
+                    <input type="number" name="puntos" id="edit-rk-puntos" class="input-sm"
+                           style="width:100%;margin-top:6px;" min="0" required>
+                  </div>
+                </div>
+                <div>
+                  <label class="stat-label">Total ganado (EUR) *</label>
+                  <input type="number" name="total_ganado" id="edit-rk-total" class="input-sm"
+                         style="width:100%;margin-top:6px;" min="0" step="0.01" required>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+                <button type="button" class="btn" onclick="document.getElementById('modal-ranking-editar').style.display='none'">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Actualizar</button>
+              </div>
+            </form>
+          </div>
         </div>
-        <table><thead><tr><th onclick="sortRender('settings','clave',this)">Clave <span class="sort-arrow">⇅</span></th><th onclick="sortRender('settings','valor',this)">Valor <span class="sort-arrow">⇅</span></th><th onclick="sortRender('settings','descripcion',this)">Descripción <span class="sort-arrow">⇅</span></th><th onclick="sortRender('settings','activo',this)">Activo <span class="sort-arrow">⇅</span></th><th>Acciones</th></tr></thead><tbody id="tbody-settings"></tbody></table>
-        <div class="pagination" id="pag-settings"></div>
-      </div>
+
+        <script>
+        function abrirEditarRanking(id, userId, posicion, puntos, total) {
+          document.getElementById('form-editar-ranking').action = '/admin/rankings/' + id;
+          document.getElementById('edit-rk-user').value    = userId;
+          document.getElementById('edit-rk-posicion').value = posicion;
+          document.getElementById('edit-rk-puntos').value  = puntos;
+          document.getElementById('edit-rk-total').value   = total;
+          document.getElementById('modal-ranking-editar').style.display = 'flex';
+        }
+        {{-- Reabrir modal crear si hay errores de validación --}}
+        @if($errors->any() && $section === 'rankings')
+          document.getElementById('modal-ranking-crear').style.display = 'flex';
+        @endif
+        </script>
+
+      @endif
+      {{-- FIN SECCIÓN RANKINGS --}}
+
     </div>
-  </div>
+  </main>
 </div>
 
-<!-- MODALES -->
-<div class="modal-overlay" id="modal-usuario"><div class="modal"><h2 id="title-usuario">Nuevo Usuario</h2>
-  <div class="form-row"><div class="form-group"><label class="form-label">Nombre *</label><input type="text" class="form-control" id="u-nombre"><div class="error-msg" id="err-u-nombre"></div></div><div class="form-group"><label class="form-label">Email *</label><input type="email" class="form-control" id="u-email"><div class="error-msg" id="err-u-email"></div></div></div>
-  <div class="form-row"><div class="form-group"><label class="form-label">Contraseña *</label><input type="password" class="form-control" id="u-password"><div class="error-msg" id="err-u-password"></div></div><div class="form-group"><label class="form-label">Puntos fidelidad</label><input type="number" class="form-control" id="u-puntos" value="0"></div></div>
-  <div class="form-group"><label class="form-label">Nivel VIP</label><select class="form-control" id="u-vip"><option value="0">Sin VIP</option><option value="1">VIP 1</option><option value="2">VIP 2</option><option value="3">VIP 3</option></select></div>
-  <div class="form-actions"><button class="btn" onclick="closeModal('modal-usuario')">Cancelar</button><button class="btn btn-primary" onclick="submitForm('usuarios')">Guardar</button></div>
-</div></div>
-
-<div class="modal-overlay" id="modal-setting"><div class="modal"><h2 id="title-setting">Nueva Configuración</h2>
-  <div class="form-group"><label class="form-label">Clave *</label><input type="text" class="form-control" id="s-clave"><div class="error-msg" id="err-s-clave"></div></div>
-  <div class="form-group"><label class="form-label">Valor *</label><input type="number" class="form-control" id="s-valor"><div class="error-msg" id="err-s-valor"></div></div>
-  <div class="form-group"><label class="form-label">Descripción</label><textarea class="form-control" id="s-descripcion" rows="3"></textarea></div>
-  <div class="form-group"><label class="form-label">Activo</label><select class="form-control" id="s-activo"><option value="true">Sí</option><option value="false">No</option></select></div>
-  <div class="form-actions"><button class="btn" onclick="closeModal('modal-setting')">Cancelar</button><button class="btn btn-primary" onclick="submitForm('settings')">Guardar</button></div>
-</div></div>
-
-<div class="modal-overlay" id="modal-apuesta">
-  <div class="modal">
-    <h2 id="title-apuesta">Nueva Apuesta</h2>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">ID Usuario *</label>
-        <input type="number" class="form-control" id="a-user_id">
-        <div class="error-msg" id="err-a-user_id"></div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">ID Juego *</label>
-        <input type="number" class="form-control" id="a-juego_id">
-        <div class="error-msg" id="err-a-juego_id"></div>
-      </div>
+<div class="summary-modal" id="summaryModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div><h2 class="panel-title" id="summaryTitle">Resumen usuario</h2><div class="muted" id="summaryEmail"></div></div>
+      <button class="btn" onclick="closeSummary()">Cerrar</button>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Monto ($) *</label>
-        <input type="number" step="0.01" class="form-control" id="a-monto">
-        <div class="error-msg" id="err-a-monto"></div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Cuota *</label>
-        <input type="number" step="0.01" class="form-control" id="a-cuota">
-        <div class="error-msg" id="err-a-cuota"></div>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Estado *</label>
-        <select class="form-control" id="a-estado">
-          <option value="pendiente">Pendiente</option>
-          <option value="ganada">Ganada</option>
-          <option value="perdida">Perdida</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Fecha *</label>
-        <input type="date" class="form-control" id="a-fecha">
-        <div class="error-msg" id="err-a-fecha"></div>
-      </div>
-    </div>
-    <div class="form-actions">
-      <button class="btn" onclick="closeModal('modal-apuesta')">Cancelar</button>
-      <button class="btn btn-primary" onclick="submitForm('apuestas')">Guardar</button>
-    </div>
+    <div id="summaryBody" class="muted">Cargando...</div>
   </div>
 </div>
-
-<div class="modal-overlay" id="modal-confirm"><div class="confirm-modal"><div class="confirm-icon">🗑️</div><h3>¿Eliminar registro?</h3><p id="confirm-text"></p><div><button class="btn" onclick="closeModal('modal-confirm')">Cancelar</button><button class="btn btn-danger" id="confirm-ok-btn">Sí, eliminar</button></div></div></div>
-<div id="toast"></div>
 
 <script>
-// =========================== STATE ===========================
-let state = {};
-['usuarios', 'settings','apuestas','notificaciones'].forEach(k => {
-  state[k] = { page: 1, per: 6, sort: 'id', dir: 1, total: 0, lastPage: 1 };
-});
-let editing = {};
-let deleteFn = null;
+async function showUserSummary(userId) {
+  const modal = document.getElementById('summaryModal');
+  const body = document.getElementById('summaryBody');
+  modal.classList.add('open');
+  body.textContent = 'Cargando...';
 
-// =========================== NAV ===========================
-function goTo(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const el = document.getElementById('page-admin-' + page);
-  if (el) el.classList.add('active');
-  if (page === 'usuarios') renderTable('usuarios');
-  if (page === 'settings') renderTable('settings');
-  if (page === 'notificaciones') renderTable('notificaciones');
-  if (page === 'apuestas') renderTable('apuestas');
-  if (page === 'dashboard') loadDashboardStats();
-}
-
-// =========================== MODAL ===========================
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); clearErrors(); }
-function clearErrors() { document.querySelectorAll('.error-msg').forEach(e => e.textContent = ''); document.querySelectorAll('.form-control').forEach(e => e.classList.remove('error')); }
-function setErr(fId, eId, msg) { const f = document.getElementById(fId); const e = document.getElementById(eId); if (f) f.classList.add('error'); if (e) e.textContent = msg; }
-function toast(msg, type = 'success') { const t = document.getElementById('toast'); t.textContent = (type === 'success' ? '✓ ' : type === 'danger' ? '✗ ' : '⚠ ') + msg; t.className = 'show ' + type; setTimeout(() => { t.className = ''; }, 2800); }
-
-// =========================== API ===========================
-async function fetchData(key) {
   try {
-    const s = state[key];
-    let url = `/admin/${key}/data?per=${s.per}&page=${s.page}&sort=${s.sort}&dir=${s.dir === 1 ? 'asc' : 'desc'}`;
-    const searchEl = document.getElementById('search-' + key);
-    if (searchEl && searchEl.value) url += `&search=${encodeURIComponent(searchEl.value)}`;
-    if (key === 'usuarios') { const vip = document.getElementById('filter-vip-u')?.value; if (vip && vip !== '') url += `&nivel_vip=${vip}`; }
-    if (key === 'settings') { const act = document.getElementById('filter-activo-s')?.value; if (act && act !== '') url += `&activo=${act}`; }
-    
-    if (key === 'notificaciones') {
-        const tipo = document.getElementById('filter-tipo-n')?.value;
-        const leido = document.getElementById('filter-leido-n')?.value;
-        if (tipo && tipo !== '') url += `&tipo=${tipo}`;
-        if (leido && leido !== '') url += `&leido=${leido}`;
-    }
-    
-    const response = await fetch(url);
+    const response = await fetch(`/admin/usuarios/${userId}/resumen`, { headers: { 'Accept': 'application/json' } });
+    if (!response.ok) throw new Error('No se pudo cargar el resumen');
     const data = await response.json();
-    return data;
-  } catch (error) { toast('Error al cargar datos', 'danger'); return { data: [], total: 0, current_page: 1, last_page: 1 }; }
-}
+    document.getElementById('summaryTitle').textContent = data.user.name;
+    document.getElementById('summaryEmail').textContent = data.user.email + ' · Saldo ' + formatMoney(data.user.saldo);
 
-async function saveToAPI(key, data, id = null) {
-  try {
-    const url = id ? `/admin/${key}/${id}` : `/admin/${key}`;
-    const method = id ? 'PUT' : 'POST';
-    const response = await fetch(url, {
-      method: method,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json', // Esto obliga a Laravel a no devolver HTML
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content 
-      },
-      body: JSON.stringify(data)
-    });
-    
-    const result = await response.json();
-    
-    if (response.ok) { 
-      toast(result.message || 'Guardado correctamente', 'success'); 
-      return result; 
-    } else { 
-      if (result.errors) { 
-        Object.keys(result.errors).forEach(f => { 
-          if (key === 'usuarios') { 
-            if (f === 'name') setErr('u-nombre', 'err-u-nombre', result.errors[f][0]); 
-            if (f === 'email') setErr('u-email', 'err-u-email', result.errors[f][0]); 
-            if (f === 'password') setErr('u-password', 'err-u-password', result.errors[f][0]); 
-          } 
-          if (key === 'settings') { 
-            if (f === 'clave') setErr('s-clave', 'err-s-clave', result.errors[f][0]); 
-            if (f === 'valor') setErr('s-valor', 'err-s-valor', result.errors[f][0]); 
-          }
-          // AHORA SÍ MAPEA LOS ERRORES DE APUESTAS:
-          if (key === 'apuestas') {
-            if (f === 'user_id') setErr('a-user_id', 'err-a-user_id', result.errors[f][0]);
-            if (f === 'juego_id') setErr('a-juego_id', 'err-a-juego_id', result.errors[f][0]);
-            if (f === 'monto') setErr('a-monto', 'err-a-monto', result.errors[f][0]);
-            if (f === 'cuota') setErr('a-cuota', 'err-a-cuota', result.errors[f][0]);
-            if (f === 'fecha') setErr('a-fecha', 'err-a-fecha', result.errors[f][0]);
-          }
-        }); 
-      } 
-      toast(result.message || 'Error de validación', 'danger'); 
-      return null; 
+    const resumen = data.resumen;
+    let html = `<div class="mini-grid">
+      <div class="mini-card"><span>Total apuestas</span><b>${resumen.total_apuestas}</b></div>
+      <div class="mini-card"><span>Total apostado</span><b>${formatMoney(resumen.total_apostado)}</b></div>
+      <div class="mini-card"><span>Ganancia neta</span><b>${formatMoney(resumen.ganancia_neta)}</b></div>
+      <div class="mini-card"><span>Pérdida neta</span><b>${formatMoney(resumen.perdida_neta)}</b></div>
+      <div class="mini-card"><span>Balance neto</span><b>${formatMoney(resumen.balance_neto)}</b></div>
+      <div class="mini-card"><span>Activas</span><b>${resumen.pendientes}</b></div>
+    </div>`;
+
+    html += '<h3 class="panel-title">Por juego</h3>';
+    if (!data.por_juego.length) {
+      html += '<p class="muted">Este usuario todavía no tiene apuestas.</p>';
+    } else {
+      html += '<div class="table-scroll"><table><thead><tr><th>Juego</th><th>Total</th><th>Apostado</th><th>Ganadas</th><th>Perdidas</th><th>Activas</th><th>Balance</th></tr></thead><tbody>';
+      data.por_juego.forEach((row) => {
+        html += `<tr><td><strong>${escapeHtml(row.nombre || 'Juego')}</strong></td><td>${row.total}</td><td>${formatMoney(row.apostado)}</td><td>${row.ganadas}</td><td>${row.perdidas}</td><td>${row.pendientes}</td><td>${formatMoney(row.ganancia_neta - row.perdida_neta)}</td></tr>`;
+      });
+      html += '</tbody></table></div>';
     }
-  } catch (error) { 
-    toast('Error de conexión. Revisa la consola.', 'danger'); 
-    console.error('Error capturado en saveToAPI:', error);
-    return null; 
+    body.innerHTML = html;
+  } catch (error) {
+    body.textContent = error.message;
   }
 }
-async function deleteFromAPI(key, id) {
-  try {
-    const response = await fetch(`/admin/${key}/${id}`, { 
-      method: 'DELETE', 
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json', // <-- EL ESCUDO ANTI-ERRORES
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content 
-      } 
-    });
-    
-    const result = await response.json();
-    
-    if (response.ok) { 
-      toast(result.message || 'Eliminado correctamente', 'success'); 
-      return true; 
-    } else { 
-      toast(result.message || 'Error al eliminar', 'danger'); 
-      return false; 
-    }
-  } catch (error) { 
-    toast('Error de conexión al eliminar. Mira la consola.', 'danger'); 
-    console.error('Error en deleteFromAPI:', error);
-    return false; 
-  }
-}
-
-function confirmDelete(key, id) {
-  // Arreglamos el texto para que suene bien según lo que borres
-  let nombreItem = key;
-  if (key === 'usuarios') nombreItem = 'usuario';
-  if (key === 'settings') nombreItem = 'configuración';
-  if (key === 'apuestas') nombreItem = 'apuesta';
-
-  document.getElementById('confirm-text').textContent = `¿Eliminar ${nombreItem} #${id}?`;
-  
-  deleteFn = async () => { 
-    const success = await deleteFromAPI(key, id); 
-    if (success) { 
-      closeModal('modal-confirm'); 
-      renderTable(key); 
-    } 
-  };
-  
-  document.getElementById('confirm-ok-btn').onclick = deleteFn;
-  openModal('modal-confirm');
-}
-// =========================== RENDER ===========================
-async function renderTable(key) {
-  const result = await fetchData(key);
-  const data = result.data || [];
-  const total = result.total || 0;
-  const currentPage = result.current_page || 1;
-  const lastPage = result.last_page || 1;
-  state[key].total = total; state[key].lastPage = lastPage; state[key].page = currentPage;
-  const countEl = document.getElementById('count-' + key);
-  if (countEl) countEl.textContent = total + ' registro' + (total !== 1 ? 's' : '');
-  const tbody = document.getElementById('tbody-' + key);
-  if (tbody) tbody.innerHTML = rowsFor(key, data);
-  const pagEl = document.getElementById('pag-' + key);
-  if (pagEl) pagEl.innerHTML = buildPagination(key, currentPage, lastPage, total, data.length);
-}
-
-function rowsFor(key, slice) {
-  return slice.map(r => {
-    const actions = `<td style="display:flex;gap:5px;"><button class="btn btn-sm" onclick="editRecord('${key}',${r.id})">✏️</button><button class="btn btn-sm btn-danger" onclick="confirmDelete('${key}',${r.id})">🗑</button></td>`;
-    if (key === 'usuarios') return `<tr><td>#${r.id}</td><td><strong>${r.name}</strong></td><td>${r.email}</td><td>${(r.puntos_fidelidad || 0).toLocaleString()}</td><td>${badgeVip(r.nivel_vip || 0)}</td>${actions}</tr>`;
-    if (key === 'settings') return `<tr><td><strong>${r.clave}</strong></td><td><span class="badge badge-gold">${r.valor}</span></td><td>${r.descripcion || '—'}</td><td>${r.activo ? '<span class="badge badge-success">Activo</span>' : '<span class="badge badge-danger">Inactivo</span>'}</td>${actions}</tr>`;
-    if (key === 'apuestas') {
-      let estadoBadge = '';
-      if (r.estado === 'ganada') estadoBadge = '<span class="badge badge-success">Ganada</span>';
-      else if (r.estado === 'perdida') estadoBadge = '<span class="badge badge-danger">Perdida</span>';
-      else estadoBadge = '<span class="badge badge-warning">Pendiente</span>';
-
-      // Accedemos a las relaciones si existen, sino mostramos el ID
-      let userName = r.user ? r.user.name : 'User #' + r.user_id;
-      let juegoName = r.juego ? r.juego.nombre : 'Juego #' + r.juego_id;
-      // Formatear fecha
-      let fecha = new Date(r.fecha).toLocaleDateString();
-
-      return `<tr>
-        <td>#${r.id}</td>
-        <td><strong>${userName}</strong></td>
-        <td>${juegoName}</td>
-        <td>$${parseFloat(r.monto).toFixed(2)}</td>
-        <td>${parseFloat(r.cuota).toFixed(2)}</td>
-        <td>${estadoBadge}</td>
-        <td>${fecha}</td>
-        ${actions}
-      </tr>`;
-    }
-
-    if (key === 'notificaciones') {
-      let tipoBadge = r.tipo === 'promo' ? '<span class="badge badge-gold">Promo</span>' : 
-                      (r.tipo === 'apuesta' ? '<span class="badge badge-success">Apuesta</span>' : '<span class="badge badge-info">' + r.tipo + '</span>');
-      let leidoBadge = r.leido ? '<span class="badge badge-success">Sí</span>' : '<span class="badge badge-danger">No</span>';
-      let userName = r.user ? r.user.name : 'User #' + r.user_id;
-      let fecha = r.fecha ? r.fecha.split(' ')[0] : '';
-
-      return `<tr>
-        <td>#${r.id}</td>
-        <td><strong>${userName}</strong></td>
-        <td>${tipoBadge}</td>
-        <td>${r.titulo}</td>
-        <td>${leidoBadge}</td>
-        <td>${fecha}</td>
-        ${actions}
-      </tr>`;
-    }
-
-    return '';
-  }).join('');
-}
-
-function buildPagination(key, cur, pages, total, showing) {
-  if (pages <= 1) return '';
-  let html = `<button class="page-btn" onclick="changePage('${key}',${cur - 1})" ${cur <= 1 ? 'disabled' : ''}>‹</button>`;
-  for (let i = 1; i <= pages; i++) { if (pages > 7 && i > 2 && i < pages - 1 && Math.abs(i - cur) > 1) { if (i === 3 || i === pages - 2) html += '<span style="padding:0 4px;">…</span>'; continue; } html += `<button class="page-btn ${i === cur ? 'active' : ''}" onclick="changePage('${key}',${i})">${i}</button>`; }
-  html += `<button class="page-btn" onclick="changePage('${key}',${cur + 1})" ${cur >= pages ? 'disabled' : ''}>›</button><span class="page-info">Mostrando ${showing} de ${total}</span>`;
-  return html;
-}
-
-function changePage(key, p) { if (p < 1 || p > state[key].lastPage) return; state[key].page = p; renderTable(key); }
-function filterRender(key) { state[key].page = 1; renderTable(key); }
-function sortRender(key, col, th) { const s = state[key]; if (s.sort === col) s.dir *= -1; else { s.sort = col; s.dir = 1; } s.page = 1; document.querySelectorAll(`#page-admin-${key} thead th`).forEach(t => { t.classList.remove('sorted'); const a = t.querySelector('.sort-arrow'); if (a) a.textContent = '⇅'; }); if (th) { th.classList.add('sorted'); const a = th.querySelector('.sort-arrow'); if (a) a.textContent = s.dir === 1 ? '↑' : '↓'; } renderTable(key); }
-
-// =========================== BADGES ===========================
-function badgeVip(v) { const map = { 0: '<span class="badge badge-muted">Sin VIP</span>', 1: '<span class="badge badge-warning">VIP 1</span>', 2: '<span class="badge badge-info">VIP 2</span>', 3: '<span class="badge badge-gold">VIP 3</span>' }; return map[v] || '<span class="badge badge-muted">?</span>'; }
-
-// =========================== CRUD ===========================
-async function editRecord(key, id) {
-  try {
-    const response = await fetch(`/admin/${key}/${id}`);
-    const record = await response.json();
-    editing[key] = id;
-    
-    if (key === 'notificaciones') {
-      document.getElementById('title-notificacion').textContent = 'Editar Notificación';
-      document.getElementById('n-user_id').value = record.user_id;
-      document.getElementById('n-tipo').value = record.tipo;
-      document.getElementById('n-titulo').value = record.titulo;
-      document.getElementById('n-mensaje').value = record.mensaje || '';
-      document.getElementById('n-leido').value = record.leido ? 'true' : 'false';
-      document.getElementById('n-fecha').value = record.fecha ? record.fecha.split(' ')[0] : '';
-      openModal('modal-notificacion');
-    }
-
-    if (key === 'usuarios') {
-      document.getElementById('title-usuario').textContent = 'Editar Usuario';
-      document.getElementById('u-nombre').value = record.name;
-      document.getElementById('u-email').value = record.email;
-      document.getElementById('u-puntos').value = record.puntos_fidelidad || 0;
-      document.getElementById('u-vip').value = record.nivel_vip || 0;
-      document.getElementById('u-password').value = '';
-      openModal('modal-usuario');
-    }
-    if (key === 'settings') {
-      document.getElementById('title-setting').textContent = 'Editar Configuración';
-      document.getElementById('s-clave').value = record.clave;
-      document.getElementById('s-valor').value = record.valor;
-      document.getElementById('s-descripcion').value = record.descripcion || '';
-      document.getElementById('s-activo').value = record.activo ? 'true' : 'false';
-      openModal('modal-setting');
-    }
-    if (key === 'apuestas') {
-      document.getElementById('title-apuesta').textContent = 'Editar Apuesta';
-      document.getElementById('a-user_id').value = record.user_id;
-      document.getElementById('a-juego_id').value = record.juego_id;
-      document.getElementById('a-monto').value = record.monto;
-      document.getElementById('a-cuota').value = record.cuota;
-      document.getElementById('a-estado').value = record.estado;
-      // Extraemos solo la fecha si viene con hora
-      document.getElementById('a-fecha').value = record.fecha ? record.fecha.split(' ')[0] : '';
-      openModal('modal-apuesta');
-    }
-  } catch (error) { toast('Error al cargar', 'danger'); }
-}
-
-async function submitForm(key) {
-  clearErrors();
-  let valid = true;
-  let data = {};
-  
-  if (key === 'usuarios') {
-    const nombre = document.getElementById('u-nombre').value.trim();
-    const email = document.getElementById('u-email').value.trim();
-    const pw = document.getElementById('u-password').value;
-    if (!nombre) { setErr('u-nombre', 'err-u-nombre', 'El nombre es obligatorio'); valid = false; }
-    if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) { setErr('u-email', 'err-u-email', 'Email inválido'); valid = false; }
-    if (!editing[key] && !pw) { setErr('u-password', 'err-u-password', 'La contraseña es obligatoria'); valid = false; }
-    if (!valid) return;
-    data = { name: nombre, email: email, puntos_fidelidad: parseInt(document.getElementById('u-puntos').value) || 0, nivel_vip: parseInt(document.getElementById('u-vip').value) || 0 };
-    if (pw) data.password = pw;
-  }
-
-  if (key === 'notificaciones') {
-    const userId = parseInt(document.getElementById('n-user_id').value);
-    const tipo = document.getElementById('n-tipo').value;
-    const titulo = document.getElementById('n-titulo').value.trim();
-    const mensaje = document.getElementById('n-mensaje').value;
-    const leido = document.getElementById('n-leido').value === 'true';
-    const fecha = document.getElementById('n-fecha').value;
-
-    if (!userId) { setErr('n-user_id', 'err-n-user_id', 'Obligatorio'); valid = false; }
-    if (!titulo) { setErr('n-titulo', 'err-n-titulo', 'Obligatorio'); valid = false; }
-    if (!fecha) { setErr('n-fecha', 'err-n-fecha', 'Obligatorio'); valid = false; }
-
-    if (!valid) return;
-    data = { user_id: userId, tipo: tipo, titulo: titulo, mensaje: mensaje, leido: leido, fecha: fecha };
-  }
-
-  if (key === 'settings') {
-    const clave = document.getElementById('s-clave').value.trim();
-    const valor = parseInt(document.getElementById('s-valor').value);
-    if (!clave) { setErr('s-clave', 'err-s-clave', 'La clave es obligatoria'); valid = false; }
-    if (isNaN(valor)) { setErr('s-valor', 'err-s-valor', 'El valor debe ser un número'); valid = false; }
-    if (!valid) return;
-    data = { clave: clave, valor: valor, descripcion: document.getElementById('s-descripcion').value, activo: document.getElementById('s-activo').value === 'true' };
-  }
-
-  if (key === 'apuestas') {
-    const userId = parseInt(document.getElementById('a-user_id').value);
-    const juegoId = parseInt(document.getElementById('a-juego_id').value);
-    const monto = parseFloat(document.getElementById('a-monto').value);
-    const cuota = parseFloat(document.getElementById('a-cuota').value);
-    const estado = document.getElementById('a-estado').value;
-    const fecha = document.getElementById('a-fecha').value;
-
-    if (!userId) { setErr('a-user_id', 'err-a-user_id', 'Obligatorio'); valid = false; }
-    if (!juegoId) { setErr('a-juego_id', 'err-a-juego_id', 'Obligatorio'); valid = false; }
-    if (isNaN(monto) || monto <= 0) { setErr('a-monto', 'err-a-monto', 'Monto inválido'); valid = false; }
-    if (isNaN(cuota) || cuota < 1) { setErr('a-cuota', 'err-a-cuota', 'Cuota inválida'); valid = false; }
-    if (!fecha) { setErr('a-fecha', 'err-a-fecha', 'Obligatorio'); valid = false; }
-
-    if (!valid) return;
-    data = { user_id: userId, juego_id: juegoId, monto: monto, cuota: cuota, estado: estado, fecha: fecha };
-  }
-  
-  const result = await saveToAPI(key, data, editing[key]);
-  if (result) { 
-    if (key === 'usuarios') closeModal('modal-usuario');
-    if (key === 'settings') closeModal('modal-setting');
-    if (key === 'apuestas') closeModal('modal-apuesta');
-    
-    editing[key] = null; 
-    renderTable(key); 
-  }
-}
-
-function openNewModal(key) {
-  editing[key] = null;
-  
-  if (key === 'usuarios') {
-    document.getElementById('title-usuario').textContent = 'Nuevo Usuario';
-    document.getElementById('u-nombre').value = '';
-    document.getElementById('u-email').value = '';
-    document.getElementById('u-password').value = '';
-    document.getElementById('u-puntos').value = '0';
-    document.getElementById('u-vip').value = '0';
-    openModal('modal-usuario');
-  }
-  if (key === 'settings') {
-    document.getElementById('title-setting').textContent = 'Nueva Configuración';
-    document.getElementById('s-clave').value = '';
-    document.getElementById('s-valor').value = '';
-    document.getElementById('s-descripcion').value = '';
-    document.getElementById('s-activo').value = 'true';
-    openModal('modal-setting');
-  }
-  if (key === 'apuestas') {
-    document.getElementById('title-apuesta').textContent = 'Nueva Apuesta';
-    document.getElementById('a-user_id').value = '';
-    document.getElementById('a-juego_id').value = '';
-    document.getElementById('a-monto').value = '';
-    document.getElementById('a-cuota').value = '';
-    document.getElementById('a-estado').value = 'pendiente';
-    // Por defecto ponemos la fecha de hoy
-    document.getElementById('a-fecha').value = new Date().toISOString().split('T')[0];
-    openModal('modal-apuesta');
-  }
-
-  if (key === 'notificaciones') {
-    document.getElementById('title-notificacion').textContent = 'Nueva Notificación';
-    document.getElementById('n-user_id').value = '';
-    document.getElementById('n-tipo').value = 'alerta';
-    document.getElementById('n-titulo').value = '';
-    document.getElementById('n-mensaje').value = '';
-    document.getElementById('n-leido').value = 'false';
-    document.getElementById('n-fecha').value = new Date().toISOString().split('T')[0];
-    openModal('modal-notificacion');
-  }
-
-}
-
-// =========================== DASHBOARD ===========================
-async function loadDashboardStats() {
-  try {
-    const usersRes = await fetch('/admin/usuarios/data?per=100');
-    const usersData = await usersRes.json();
-    document.getElementById('stat-usuarios').textContent = usersData.total || usersData.data?.length || 0;
-    const settingsRes = await fetch('/admin/settings/data');
-    const settingsData = await settingsRes.json();
-    document.getElementById('stat-juegos').textContent = settingsData.data?.length || 0;
-    document.getElementById('actividad-reciente').innerHTML = '<div class="activity-list"><div class="activity-item">✅ Panel cargado correctamente</div><div class="activity-item">📊 Conectado a la base de datos</div></div>';
-  } catch (error) { document.getElementById('actividad-reciente').innerHTML = '<div>Error al cargar estadísticas</div>'; }
-}
-
-// =========================== INIT ===========================
-['usuarios', 'settings', 'apuestas','notificaciones'].forEach(k => renderTable(k));
-document.querySelectorAll('.modal-overlay').forEach(m => { m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); }); });
+function closeSummary() { document.getElementById('summaryModal').classList.remove('open'); }
+function formatMoney(value) { return Number(value || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' EUR'; }
+function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char])); }
 </script>
 </body>
 </html>

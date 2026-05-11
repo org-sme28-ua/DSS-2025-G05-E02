@@ -78,7 +78,7 @@ class UserController extends Controller
             $user = User::create($data);
 
             // Creamos la billetera básica asociada
-            $user->billetera()->create(['saldo' => 0]); 
+            $user->billetera()->create(['saldoDisponible' => 0, 'moneda' => 'EUR']); 
 
             return response()->json([
                 'success' => true, 

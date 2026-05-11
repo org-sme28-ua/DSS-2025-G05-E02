@@ -22,7 +22,8 @@ class User extends Authenticatable
         'email',
         'password',
         'puntos_fidelidad',
-        'nivel_vip'
+        'nivel_vip',
+        'role',
     ];
 
 
@@ -60,9 +61,15 @@ class User extends Authenticatable
         return $this->hasMany(Apuesta::class);
     }
 
+
     public function chats()
     {
         return $this->hasMany(Chat::class);
+    }
+
+    public function notificaciones()
+    {
+        return $this->hasMany(Notificacion::class);
     }
 
     public function mensajesEnviados()
@@ -96,7 +103,7 @@ class User extends Authenticatable
         $usuario->save();
 
         // Inicializar billetera vacía
-        $usuario->billetera()->create(['saldo' => 0]);
+        $usuario->billetera()->create(['saldoDisponible' => 0, 'moneda' => 'EUR']);
 
         return $usuario;
     }
@@ -106,7 +113,16 @@ class User extends Authenticatable
         // Opcional: Validar saldo en billetera aquí antes de apostar
         // Esta función crea la apuesta y reduce saldo billetera
 
-        $this->billetera->saldo -= $monto;
+        if (!$this->billetera) {
+            $this->billetera()->create(['saldoDisponible' => 0, 'moneda' => 'EUR']);
+            $this->load('billetera');
+        }
+
+        if ($this->billetera->saldoDisponible < $monto) {
+            throw new \Exception('Saldo insuficiente.');
+        }
+
+        $this->billetera->saldoDisponible -= $monto;
         $this->billetera->save();
 
         return $this->apuestas()->create([
@@ -120,13 +136,16 @@ class User extends Authenticatable
 
     public function enviarMensaje(User $receptor, string $contenido, int $chatId = null)
     {
-        // Si no hay chatId, buscar o crear un chat entre los dos usuarios
-        if (!$chatId) {
+        if (! $chatId) {
             $chat = Chat::primerChatEntre($this->id, $receptor->id);
-            if (!$chat) {
+
+            if (! $chat) {
                 $chat = Chat::crearChatEntre($this->id, $receptor->id);
             }
+
             $chatId = $chat->id;
+        } else {
+            $chat = Chat::findOrFail($chatId);
         }
 
         $mensaje = Mensaje::create([
@@ -134,16 +153,21 @@ class User extends Authenticatable
             'emisor_id' => $this->id,
             'receptor_id' => $receptor->id,
             'contenido' => $contenido,
-            'fechaHora' => now(),
             'editado' => false,
         ]);
-        // Crear notificación para el receptor
-        \App\Models\Notificacion::crearNotificacion(
+
+        $chat->update([
+            'last_message_at' => now(),
+            'activo' => true,
+        ]);
+
+        Notificacion::crearNotificacion(
             $receptor->id,
-            'Nuevo mensaje recibido',
-            "Has recibido un nuevo mensaje de {$this->name}.",
+            'Nuevo mensaje de ' . $this->name,
+            $this->name . ' te ha escrito en el chat.',
             'mensaje'
         );
+
         return $mensaje;
     }
 
@@ -210,12 +234,12 @@ class User extends Authenticatable
     // Notificaciones
     public function notificacionesNoLeidas()
     {
-        return $this->hasMany(Notificacion::class)->where('leida', false)->get();
+        return $this->notificaciones()->where('leido', false)->get();
     }
 
     public function marcarNotificacionesComoLeidas()
     {
-        return $this->hasMany(Notificacion::class)->where('leida', false)->update(['leida' => true]);
+        return $this->notificaciones()->where('leido', false)->update(['leido' => true]);
     }
 
     // Configuración y perfil

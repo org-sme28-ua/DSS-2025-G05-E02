@@ -2,9 +2,9 @@
 
 namespace Database\Factories;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
 use App\Models\Chat;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
 class ChatFactory extends Factory
 {
@@ -13,9 +13,12 @@ class ChatFactory extends Factory
     public function definition(): array
     {
         return [
-            'nombre' => 'Sala '.$this->faker->word(),
+            'nombre' => 'Chat privado ' . $this->faker->word(),
             'activo' => true,
             'user_id' => User::factory(),
+            'user_one_id' => null,
+            'user_two_id' => null,
+            'last_message_at' => null,
         ];
     }
 }

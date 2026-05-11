@@ -1,23 +1,27 @@
 <?php
+
 namespace Database\Seeders;
+
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
-use App\Models\Billetera;
+use Illuminate\Support\Facades\DB;
 
 class BilleteraSeeder extends Seeder
 {
     public function run(): void
     {
-        // Asignamos billeteras usando los IDs de los usuarios recién creados (1 y 2)
-        Billetera::create([
-            'user_id' => 1,
-            'saldoDisponible' => 500.50,
-            'moneda' => 'EUR'
-        ]);
+        $now = Carbon::now();
+        $users = DB::table('users')->pluck('id', 'email');
 
-        Billetera::create([
-            'user_id' => 2,
-            'saldoDisponible' => 10000.00,
-            'moneda' => 'EUR'
+        DB::table('billeteras')->insert([
+            ['user_id' => $users['admin@bookie20.test'], 'saldoDisponible' => 15000.00, 'moneda' => 'EUR', 'created_at' => $now, 'updated_at' => $now],
+            ['user_id' => $users['operador@bookie20.test'], 'saldoDisponible' => 8000.00, 'moneda' => 'EUR', 'created_at' => $now, 'updated_at' => $now],
+            ['user_id' => $users['carlos@bookie20.test'], 'saldoDisponible' => 900.50, 'moneda' => 'EUR', 'created_at' => $now, 'updated_at' => $now],
+            ['user_id' => $users['lucia@bookie20.test'], 'saldoDisponible' => 1290.75, 'moneda' => 'EUR', 'created_at' => $now, 'updated_at' => $now],
+            ['user_id' => $users['mateo@bookie20.test'], 'saldoDisponible' => 575.00, 'moneda' => 'EUR', 'created_at' => $now, 'updated_at' => $now],
+            ['user_id' => $users['sofia@bookie20.test'], 'saldoDisponible' => 3325.40, 'moneda' => 'EUR', 'created_at' => $now, 'updated_at' => $now],
+            ['user_id' => $users['daniel@bookie20.test'], 'saldoDisponible' => 610.00, 'moneda' => 'EUR', 'created_at' => $now, 'updated_at' => $now],
+            ['user_id' => $users['valentina@bookie20.test'], 'saldoDisponible' => 750.25, 'moneda' => 'EUR', 'created_at' => $now, 'updated_at' => $now],
         ]);
     }
 }
