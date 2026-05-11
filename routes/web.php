@@ -112,6 +112,35 @@ Route::middleware('auth')->group(function () {
         return view('apuestas', compact('apuestas'));
     })->name('private.apuestas');
 
+
+    Route::get('/rankings', function () {
+        $search = request('search', '');
+        $sort   = in_array(request('sort'), ['posicion','puntos','total_ganado','id']) ? request('sort') : 'posicion';
+        $dir    = request('dir', 'asc') === 'desc' ? 'desc' : 'asc';
+     
+        $rankings = \App\Models\Ranking::with('user')
+            ->when($search, function ($q) use ($search) {
+                $q->whereHas('user', function ($u) use ($search) {
+                    $u->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy($sort, $dir)
+            ->paginate(15)
+            ->withQueryString();
+     
+        // Top 3 para el podio (siempre por posición)
+        $top3 = \App\Models\Ranking::with('user')
+            ->orderBy('posicion')
+            ->take(3)
+            ->get();
+     
+        return view('rankings', compact('rankings', 'top3'));
+    })->name('private.rankings');
+
+
+
+
     Route::get('/mis-notificaciones', function () {
         $notificaciones = Notificacion::query()
             ->where('user_id', auth()->id())
@@ -197,6 +226,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/mensajes', [MensajeController::class, 'crear'])->name('admin.mensajes.store');
         Route::put('/mensajes/{mensaje}', [MensajeController::class, 'actualizar'])->name('admin.mensajes.update');
         Route::delete('/mensajes/{mensaje}', [MensajeController::class, 'eliminar'])->name('admin.mensajes.destroy');
+
+
 
         Route::get('/rankings/data', [RankingController::class, 'getData'])->name('admin.rankings.data');
         Route::get('/rankings/{ranking}', [RankingController::class, 'show'])->name('admin.rankings.show');

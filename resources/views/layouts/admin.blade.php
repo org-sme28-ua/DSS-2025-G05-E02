@@ -145,6 +145,7 @@
       <a class="nav-item {{ $active('juegos') }}" href="{{ $sectionUrl('juegos') }}">🎮 Juegos</a>
       <a class="nav-item {{ $active('billeteras') }}" href="{{ $sectionUrl('billeteras') }}">💳 Billeteras</a>
       <a class="nav-item {{ $active('notificaciones') }}" href="{{ $sectionUrl('notificaciones') }}">🔔 Notificaciones</a>
+<a class="nav-item {{ $active('rankings') }}" href="{{ $sectionUrl('rankings') }}">🏆 Rankings</a>
     </nav>
     <div class="sidebar-bottom">
       <a class="nav-item" href="{{ route('dashboard') }}">↩ Volver al dashboard</a>
@@ -435,6 +436,242 @@
           <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $notificaciones])</div>
         </section>
       @endif
+{{-- ══════════════════════════════════════════════════════════
+           SECCIÓN RANKINGS — pegar antes de </div></main> en admin.blade.php
+           ══════════════════════════════════════════════════════════ --}}
+      @if ($section === 'rankings')
+
+        {{-- ── Toolbar búsqueda + ordenación ── --}}
+        <form method="GET" action="{{ route('admin.panel') }}" class="toolbar" style="border-radius:var(--radius) var(--radius) 0 0;">
+          <input type="hidden" name="section" value="rankings">
+          <input  class="input-sm" name="search" placeholder="🔍  Buscar jugador..." style="width:200px;"
+                  value="{{ request('search') }}">
+          <select class="input-sm" name="sort" onchange="this.form.submit()">
+            <option value="posicion"     {{ request('sort','posicion')==='posicion'     ? 'selected':'' }}>Ordenar: Posición</option>
+            <option value="puntos"       {{ request('sort')==='puntos'                  ? 'selected':'' }}>Ordenar: Puntos</option>
+            <option value="total_ganado" {{ request('sort')==='total_ganado'            ? 'selected':'' }}>Ordenar: Total ganado</option>
+            <option value="id"           {{ request('sort')==='id'                      ? 'selected':'' }}>Ordenar: ID</option>
+          </select>
+          <select class="input-sm" name="dir" onchange="this.form.submit()">
+            <option value="asc"  {{ request('dir','asc')==='asc'  ? 'selected':'' }}>↑ Ascendente</option>
+            <option value="desc" {{ request('dir')==='desc'       ? 'selected':'' }}>↓ Descendente</option>
+          </select>
+          <button type="submit" class="btn btn-primary">Buscar</button>
+          <a href="{{ $sectionUrl('rankings') }}" class="btn">Limpiar</a>
+          <div style="margin-left:auto;">
+            <button type="button" class="btn btn-gold" onclick="document.getElementById('modal-ranking-crear').style.display='flex'">
+              + Nueva entrada
+            </button>
+          </div>
+        </form>
+
+        {{-- ── Tabla ── --}}
+        <section class="panel" style="border-radius:0 0 var(--radius) var(--radius);margin-top:0;">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  @php
+                    $s = request('sort','posicion');
+                    $d = request('dir','asc');
+                    $sortCols = ['posicion'=>'Posición','user_id'=>'Jugador','puntos'=>'Puntos','total_ganado'=>'Total ganado'];
+                  @endphp
+                  @foreach($sortCols as $col => $lbl)
+                  @php
+                    $newDir = ($s===$col && $d==='asc') ? 'desc' : 'asc';
+                    $arrow  = $s===$col ? ($d==='asc' ? ' ↑' : ' ↓') : '';
+                  @endphp
+                  <th>
+                    <a href="{{ route('admin.panel') }}?{{ http_build_query(array_merge(request()->except(['sort','dir','page']),['section'=>'rankings','sort'=>$col,'dir'=>$newDir])) }}"
+                       style="color:inherit;text-decoration:none;">
+                      {{ $lbl }}{{ $arrow }}
+                    </a>
+                  </th>
+                  @endforeach
+                  <th style="text-align:right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @forelse($rankings as $r)
+                <tr>
+                  {{-- Posición con medalla --}}
+                  <td>
+                    @if($r->posicion === 1)      <span style="font-size:18px;">🥇</span> <strong style="color:var(--gold);">1º</strong>
+                    @elseif($r->posicion === 2)  <span style="font-size:18px;">🥈</span> <strong style="color:#b0bec5;">2º</strong>
+                    @elseif($r->posicion === 3)  <span style="font-size:18px;">🥉</span> <strong style="color:#cd7f32;">3º</strong>
+                    @else                        <strong style="color:var(--text-muted);">#{{ $r->posicion }}</strong>
+                    @endif
+                  </td>
+                  {{-- Jugador --}}
+                  <td>
+                    <strong>{{ $r->user->name ?? '—' }}</strong>
+                    <div class="muted">{{ $r->user->email ?? 'ID #'.$r->user_id }}</div>
+                  </td>
+                  {{-- Puntos --}}
+                  <td>
+                    <span style="font-size:16px;font-weight:800;color:var(--gold);">{{ number_format($r->puntos) }}</span>
+                    <span class="muted"> pts</span>
+                  </td>
+                  {{-- Total ganado --}}
+                  <td>
+                    <span style="font-weight:700;color:var(--success);">
+                      {{ number_format($r->total_ganado, 2, ',', '.') }} EUR
+                    </span>
+                  </td>
+                  {{-- Acciones --}}
+                  <td class="actions">
+                    <div class="action-buttons">
+                      {{-- Botón editar: abre modal inline --}}
+                      <button class="btn btn-sm"
+                              onclick="abrirEditarRanking({{ $r->id }}, {{ $r->user_id }}, {{ $r->posicion }}, {{ $r->puntos }}, {{ $r->total_ganado }})">
+                        ✏️ Editar
+                      </button>
+                      {{-- Borrar --}}
+                      <form method="POST"
+                            action="{{ route('admin.rankings.destroy', $r->id) }}"
+                            onsubmit="return confirm('¿Eliminar ranking de {{ addslashes($r->user->name ?? 'este usuario') }}?')"
+                            style="display:inline;">
+                        @csrf @method('DELETE')
+                        <button type="submit" class="btn btn-sm btn-danger">🗑 Eliminar</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                @empty
+                <tr>
+                  <td colspan="5" class="muted" style="text-align:center;padding:36px;">
+                    No hay entradas en el ranking
+                    @if(request('search')) para "<strong>{{ request('search') }}</strong>" @endif.
+                  </td>
+                </tr>
+                @endforelse
+              </tbody>
+            </table>
+          </div>
+
+          {{-- Paginación --}}
+          <div class="pagination-wrap">
+            @include('partials.pagination', ['paginator' => $rankings])
+          </div>
+        </section>
+
+        {{-- ════════════════════════════════════
+             MODAL CREAR RANKING
+             ════════════════════════════════════ --}}
+        <div id="modal-ranking-crear"
+             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.74);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+          <div style="width:min(500px,95vw);background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.4);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+              <h2 class="panel-title" style="margin:0;">+ Nueva entrada de ranking</h2>
+              <button class="btn" onclick="document.getElementById('modal-ranking-crear').style.display='none'">✕ Cerrar</button>
+            </div>
+            <form method="POST" action="{{ route('admin.rankings.store') }}">
+              @csrf
+              <div style="display:grid;gap:14px;">
+                <div>
+                  <label class="stat-label">Usuario *</label>
+                  <select name="user_id" class="input-sm" style="width:100%;margin-top:6px;" required>
+                    <option value="">Selecciona un usuario</option>
+                    @foreach($usuariosAdmin as $u)
+                      <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
+                    @endforeach
+                  </select>
+                  @error('user_id') <div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</div> @enderror
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                  <div>
+                    <label class="stat-label">Posición *</label>
+                    <input type="number" name="posicion" class="input-sm" style="width:100%;margin-top:6px;"
+                           value="{{ old('posicion', 1) }}" min="1" required placeholder="Ej: 1">
+                    @error('posicion') <div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</div> @enderror
+                  </div>
+                  <div>
+                    <label class="stat-label">Puntos *</label>
+                    <input type="number" name="puntos" class="input-sm" style="width:100%;margin-top:6px;"
+                           value="{{ old('puntos', 0) }}" min="0" required placeholder="Ej: 1500">
+                    @error('puntos') <div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</div> @enderror
+                  </div>
+                </div>
+                <div>
+                  <label class="stat-label">Total ganado (EUR) *</label>
+                  <input type="number" name="total_ganado" class="input-sm" style="width:100%;margin-top:6px;"
+                         value="{{ old('total_ganado', 0) }}" min="0" step="0.01" required placeholder="Ej: 250.00">
+                  @error('total_ganado') <div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</div> @enderror
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+                <button type="button" class="btn" onclick="document.getElementById('modal-ranking-crear').style.display='none'">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar ranking</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {{-- ════════════════════════════════════
+             MODAL EDITAR RANKING
+             ════════════════════════════════════ --}}
+        <div id="modal-ranking-editar"
+             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.74);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+          <div style="width:min(500px,95vw);background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.4);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+              <h2 class="panel-title" style="margin:0;">✏️ Editar ranking</h2>
+              <button class="btn" onclick="document.getElementById('modal-ranking-editar').style.display='none'">✕ Cerrar</button>
+            </div>
+            <form method="POST" id="form-editar-ranking" action="">
+              @csrf @method('PUT')
+              <div style="display:grid;gap:14px;">
+                <div>
+                  <label class="stat-label">Usuario</label>
+                  <select name="user_id" id="edit-rk-user" class="input-sm" style="width:100%;margin-top:6px;" required>
+                    @foreach($usuariosAdmin as $u)
+                      <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
+                    @endforeach
+                  </select>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                  <div>
+                    <label class="stat-label">Posición *</label>
+                    <input type="number" name="posicion" id="edit-rk-posicion" class="input-sm"
+                           style="width:100%;margin-top:6px;" min="1" required>
+                  </div>
+                  <div>
+                    <label class="stat-label">Puntos *</label>
+                    <input type="number" name="puntos" id="edit-rk-puntos" class="input-sm"
+                           style="width:100%;margin-top:6px;" min="0" required>
+                  </div>
+                </div>
+                <div>
+                  <label class="stat-label">Total ganado (EUR) *</label>
+                  <input type="number" name="total_ganado" id="edit-rk-total" class="input-sm"
+                         style="width:100%;margin-top:6px;" min="0" step="0.01" required>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+                <button type="button" class="btn" onclick="document.getElementById('modal-ranking-editar').style.display='none'">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Actualizar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <script>
+        function abrirEditarRanking(id, userId, posicion, puntos, total) {
+          document.getElementById('form-editar-ranking').action = '/admin/rankings/' + id;
+          document.getElementById('edit-rk-user').value    = userId;
+          document.getElementById('edit-rk-posicion').value = posicion;
+          document.getElementById('edit-rk-puntos').value  = puntos;
+          document.getElementById('edit-rk-total').value   = total;
+          document.getElementById('modal-ranking-editar').style.display = 'flex';
+        }
+        {{-- Reabrir modal crear si hay errores de validación --}}
+        @if($errors->any() && $section === 'rankings')
+          document.getElementById('modal-ranking-crear').style.display = 'flex';
+        @endif
+        </script>
+
+      @endif
+      {{-- FIN SECCIÓN RANKINGS --}}
+
     </div>
   </main>
 </div>
