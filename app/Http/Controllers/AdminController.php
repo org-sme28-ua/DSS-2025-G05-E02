@@ -10,6 +10,7 @@ use App\Models\Notificacion;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Ranking;
 
 class AdminController extends Controller
 {
@@ -163,6 +164,27 @@ class AdminController extends Controller
             ->orderBy('tipo')
             ->pluck('tipo');
 
+        $rankingSearch = $request->get('search', '');
+        $rankingSort   = $request->get('sort', 'posicion');
+        $rankingDir    = $request->get('dir', 'asc');
+
+        $rankings = Ranking::with('user')
+            ->when($rankingSearch, function ($q) use ($rankingSearch) {
+                $q->whereHas('user', function ($u) use ($rankingSearch) {
+                    $u->where('name', 'like', "%{$rankingSearch}%")
+                      ->orWhere('email', 'like', "%{$rankingSearch}%");
+                })->orWhere('posicion', 'like', "%{$rankingSearch}%");
+            })
+            ->orderBy(
+                in_array($rankingSort, ['id', 'posicion', 'puntos', 'total_ganado']) ? $rankingSort : 'posicion',
+                $rankingDir === 'desc' ? 'desc' : 'asc'
+            )
+            ->paginate(10, ['*'], 'rankings_page')
+            ->withQueryString();
+
+        $usuariosAdmin = User::orderBy('name')->get(['id', 'name', 'email']);
+
+
         return view('layouts.admin', compact(
             'section',
             'stats',
@@ -178,6 +200,8 @@ class AdminController extends Controller
             'tipos',
             'chartRows',
             'adminTimeline'
+            'rankings',     
+            'usuariosAdmin'
         ));
     }
 

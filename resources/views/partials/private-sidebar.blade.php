@@ -39,6 +39,11 @@
                 <span class="badge pendiente" style="margin-left:auto; padding:3px 8px;">{{ $unreadChatMessages }}</span>
             @endif
         </a>
+        {{-- ── Rankings ── --}}
+        <a class="sidebar-link {{ $activeNav === 'rankings' ? 'active' : '' }}" href="{{ route('private.rankings') }}">
+            <span class="sidebar-icon">&#127942;</span>
+            <span>Rankings</span>
+        </a>
     </nav>
 
     <div class="sidebar-footer">

@@ -3,79 +3,110 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ranking;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class RankingController extends Controller
 {
-    public function getData(Request $request)
+    /**
+     * Listado con búsqueda, ordenación y paginación.
+     */
+    public function index(Request $request)
     {
-        $query = Ranking::query();
+        $query = Ranking::with('user');
 
+        // ── Búsqueda por nombre de usuario ──────────────────────────
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where('user_id', 'like', "%{$search}%");
+            $query->whereHas('user', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            })->orWhere('posicion', 'like', "%{$search}%");
         }
 
-        $sort = $request->get('sort', 'id');
-        $dir = $request->get('dir', 'asc');
-        $per = (int) $request->get('per', 6);
+        // ── Ordenación ───────────────────────────────────────────────
+        $allowedSorts = ['id', 'posicion', 'puntos', 'total_ganado', 'user_id'];
+        $sort = in_array($request->get('sort'), $allowedSorts)
+            ? $request->get('sort')
+            : 'posicion';
+        $dir = $request->get('dir', 'asc') === 'desc' ? 'desc' : 'asc';
 
-        return response()->json(
-            $query->orderBy($sort, $dir)->paginate($per)
-        );
+        $query->orderBy($sort, $dir);
+
+        // ── Paginación ───────────────────────────────────────────────
+        $per      = in_array((int) $request->get('per'), [10, 25, 50]) ? (int) $request->get('per') : 10;
+        $rankings = $query->paginate($per)->withQueryString();
+
+        // Top 3 para el podio (siempre ordenado por posicion, sin paginar)
+        $allRankings = Ranking::with('user')->orderBy('posicion')->take(3)->get();
+
+        // Usuarios disponibles para el formulario de creación
+        $usuarios = User::orderBy('name')->get();
+
+        return view('rankings.index', compact('rankings', 'allRankings', 'usuarios', 'sort', 'dir'));
     }
 
-    public function show($id)
-    {
-        return response()->json(Ranking::findOrFail($id));
-    }
-
+    /**
+     * Guardar nuevo ranking.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'posicion' => 'required|integer|min:1',
-            'puntos' => 'required|numeric|min:0',
+            'user_id'      => 'required|exists:users,id|unique:rankings,user_id',
+            'posicion'     => 'required|integer|min:1',
+            'puntos'       => 'required|numeric|min:0',
             'total_ganado' => 'required|numeric|min:0',
+        ], [
+            'user_id.required'  => 'Debes seleccionar un usuario.',
+            'user_id.unique'    => 'Este usuario ya tiene una entrada en el ranking.',
+            'posicion.required' => 'La posición es obligatoria.',
+            'posicion.min'      => 'La posición debe ser al menos 1.',
+            'puntos.required'   => 'Los puntos son obligatorios.',
+            'puntos.min'        => 'Los puntos no pueden ser negativos.',
+            'total_ganado.min'  => 'El total ganado no puede ser negativo.',
         ]);
 
-        $ranking = Ranking::create($data);
+        Ranking::create($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $ranking,
-            'message' => 'Ranking creado correctamente'
-        ], 201);
+        return redirect()->route('rankings.index')
+            ->with('success', 'Entrada de ranking creada correctamente.');
     }
 
+    /**
+     * Actualizar ranking existente.
+     */
     public function update(Request $request, $id)
     {
         $ranking = Ranking::findOrFail($id);
 
         $data = $request->validate([
-            'user_id' => 'sometimes|exists:users,id',
-            'posicion' => 'sometimes|integer|min:1',
-            'puntos' => 'sometimes|numeric|min:0',
-            'total_ganado' => 'sometimes|numeric|min:0',
+            'user_id'      => 'required|exists:users,id',
+            'posicion'     => 'required|integer|min:1',
+            'puntos'       => 'required|numeric|min:0',
+            'total_ganado' => 'required|numeric|min:0',
+        ], [
+            'user_id.required'  => 'Debes seleccionar un usuario.',
+            'posicion.required' => 'La posición es obligatoria.',
+            'posicion.min'      => 'La posición debe ser al menos 1.',
+            'puntos.min'        => 'Los puntos no pueden ser negativos.',
+            'total_ganado.min'  => 'El total ganado no puede ser negativo.',
         ]);
 
         $ranking->update($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $ranking,
-            'message' => 'Ranking actualizado correctamente'
-        ]);
+        return redirect()->route('rankings.index')
+            ->with('success', 'Ranking actualizado correctamente.');
     }
 
+    /**
+     * Eliminar ranking.
+     */
     public function destroy($id)
     {
         $ranking = Ranking::findOrFail($id);
         $ranking->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Ranking eliminado correctamente'
-        ]);
+        return redirect()->route('rankings.index')
+            ->with('success', 'Entrada de ranking eliminada correctamente.');
     }
 }
