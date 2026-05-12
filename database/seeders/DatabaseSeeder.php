@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DatabaseSeeder extends Seeder
 {
@@ -11,16 +12,23 @@ class DatabaseSeeder extends Seeder
     {
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
 
-        DB::table('user_user')->truncate();
-        DB::table('mensajes')->truncate();
-        DB::table('notificaciones')->truncate();
-        DB::table('apuestas')->truncate();
-        DB::table('rankings')->truncate();
-        DB::table('chats')->truncate();
-        DB::table('billeteras')->truncate();
-        DB::table('settings')->truncate();
-        DB::table('juegos')->truncate();
-        DB::table('users')->truncate();
+        foreach ([
+            'user_user',
+            'mensajes',
+            'notificaciones',
+            'apuestas',
+            'rankings',
+            'chats',
+            'billeteras',
+            'settings',
+            'parametros_ganancia',
+            'juegos',
+            'users',
+        ] as $table) {
+            if (Schema::hasTable($table)) {
+                DB::table($table)->truncate();
+            }
+        }
 
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
@@ -28,6 +36,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             JuegoSeeder::class,
             SettingSeeder::class,
+            ParametroGananciaSeeder::class,
             BilleteraSeeder::class,
             ChatSeeder::class,
             RankingSeeder::class,

@@ -8,11 +8,21 @@
     <div class="page-header">
         <div>
             <h1 class="page-title">Notificaciones</h1>
-            <p class="page-subtitle">Centro de avisos del usuario con el estado de lectura y el contenido recibido.</p>
+            <p class="page-subtitle">Avisos sobre predicciones, ruleta, mensajes y cambios importantes de la cuenta.</p>
         </div>
+        @if ($notificaciones->where('leido', false)->count() > 0)
+            <form method="POST" action="{{ route('private.notificaciones.read_all') }}">
+                @csrf
+                <button class="btn secondary" type="submit">Marcar todas como leídas</button>
+            </form>
+        @endif
     </div>
 
     <div class="stack">
+        @if (session('success'))
+            <div class="alert success">{{ session('success') }}</div>
+        @endif
+
         <section class="stats-grid">
             <article class="stat-card">
                 <p class="label">Total</p>
@@ -23,7 +33,7 @@
                 <div class="stat-value">{{ $notificaciones->where('leido', false)->count() }}</div>
             </article>
             <article class="stat-card">
-                <p class="label">Leidas</p>
+                <p class="label">Leídas</p>
                 <div class="stat-value">{{ $notificaciones->where('leido', true)->count() }}</div>
             </article>
         </section>
@@ -42,9 +52,17 @@
                                 <div class="muted">{{ $notificacion->mensaje }}</div>
                                 <div class="muted">{{ $notificacion->fecha ? \Illuminate\Support\Carbon::parse($notificacion->fecha)->format('d/m/Y H:i') : '-' }}</div>
                             </div>
-                            <span class="badge {{ $notificacion->leido ? 'leida' : 'no-leida' }}">
-                                {{ $notificacion->leido ? 'Leida' : 'Nueva' }}
-                            </span>
+                            <div style="display:grid; gap:8px; justify-items:end;">
+                                <span class="badge {{ $notificacion->leido ? 'leida' : 'no-leida' }}">
+                                    {{ $notificacion->leido ? 'Leída' : 'Nueva' }}
+                                </span>
+                                @if (! $notificacion->leido)
+                                    <form method="POST" action="{{ route('private.notificaciones.read', $notificacion) }}">
+                                        @csrf
+                                        <button class="btn secondary" type="submit" style="padding:8px 12px;">Leer</button>
+                                    </form>
+                                @endif
+                            </div>
                         </article>
                     @endforeach
                 </div>
