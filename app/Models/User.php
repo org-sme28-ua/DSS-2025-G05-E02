@@ -192,7 +192,7 @@ class User extends Authenticatable
     // Gestión de apuestas
     public function historialApuestas()
     {
-        return $this->apuestas()->orderByDesc('fecha')->get(); // Podemos modificar para usar scopePorUsuario en controlador si es necesario
+        return $this->apuestas()->orderByDesc('fecha')->get();
     }
 
     public function apuestasActivas()
@@ -213,14 +213,11 @@ class User extends Authenticatable
     // Gestión de amigos
     public function solicitudesDeAmistadPendientes()
     {
-        // Si gestionaras solicitudes, necesitarías una tabla pivote especial
         return []; // Placeholder
     }
 
     public function bloquearUsuario(User $otro)
     {
-        // Puedes tener otra tabla pivote 'user_blocks'
-        // Aquí solo es demostrativo
         // $this->bloqueados()->attach($otro->id);
         return true;
     }

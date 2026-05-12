@@ -5,6 +5,8 @@ use App\Http\Controllers\ApuestaController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BilleteraController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\CoinFlipController;
+use App\Http\Controllers\DiceController;
 use App\Http\Controllers\JuegoController;
 use App\Http\Controllers\MensajeController;
 use App\Http\Controllers\NotificacionController;
@@ -81,27 +83,9 @@ Route::middleware('auth')->group(function () {
 
     Route::view('/juegos', 'games')->name('private.games');
 
-    Route::get('/billetera', function () {
-        $user = auth()->user();
-        $billetera = Billetera::firstOrCreate(
-            ['user_id' => $user->id],
-            ['saldoDisponible' => 0, 'moneda' => 'EUR']
-        );
-
-        $apuestas = $user->apuestas()
-            ->with('juego')
-            ->latest('fecha')
-            ->take(8)
-            ->get();
-
-        return view('billetera', [
-            'billetera' => $billetera,
-            'apuestas' => $apuestas,
-            'totalApuestas' => $user->apuestas()->count(),
-            'apuestasPendientes' => $user->apuestas()->whereIn('estado', ['pendiente', 'aceptada'])->count(),
-            'apuestasGanadas' => $user->apuestas()->where('estado', 'ganada')->count(),
-        ]);
-    })->name('billetera');
+    Route::get('/billetera', [BilleteraController::class, 'index'])->name('billetera');
+    Route::post('/billetera/ingresar', [BilleteraController::class, 'deposit'])->name('billetera.deposit');
+    Route::post('/billetera/retirar', [BilleteraController::class, 'withdraw'])->name('billetera.withdraw');
 
     Route::get('/mis-apuestas', function () {
         $apuestas = auth()->user()->apuestas()
@@ -174,6 +158,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/prediccion', [PredictionController::class, 'index'])->name('prediction.index');
     Route::post('/prediccion', [PredictionController::class, 'store'])->name('prediction.store');
 
+    Route::get('/dados', [DiceController::class, 'index'])->name('dice.index');
+    Route::post('/dados', [DiceController::class, 'play'])->name('dice.play');
+
+    Route::get('/cara-o-cruz', [CoinFlipController::class, 'index'])->name('coin.index');
+    Route::post('/cara-o-cruz', [CoinFlipController::class, 'play'])->name('coin.play');
+
     // ============================================================
     // PANEL DE ADMINISTRACIÓN
     // ============================================================
@@ -182,7 +172,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/apuestas/{apuesta}/resolver', [AdminController::class, 'resolvePrediction'])->name('admin.predictions.resolve');
 
     // ============================================================
-    // API RUTAS PARA ADMIN (CRUD para JavaScript / pruebas)
+    // API RUTAS PARA ADMIN
     // ============================================================
     Route::prefix('admin')->group(function () {
         Route::get('/usuarios/data', [UserController::class, 'getData'])->name('admin.usuarios.data');
