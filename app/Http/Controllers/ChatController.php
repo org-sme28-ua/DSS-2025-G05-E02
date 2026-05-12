@@ -140,10 +140,19 @@ class ChatController extends Controller
             ? $activeChat->mensajes()->with(['emisor', 'receptor'])->orderBy('created_at')->get()
             : collect();
 
+        $existingChatUserIds = $chats
+            ->flatMap(fn (Chat $chat) => [$chat->user_one_id, $chat->user_two_id])
+            ->filter()
+            ->reject(fn ($id) => (int) $id === (int) $user->id)
+            ->unique()
+            ->values();
+
         $suggestedUsers = User::query()
             ->where('id', '!=', $user->id)
+            ->when($existingChatUserIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $existingChatUserIds))
+            ->orderByRaw("role = 'admin' DESC")
             ->orderBy('name')
-            ->take(8)
+            ->take(4)
             ->get(['id', 'name', 'email', 'role']);
 
         return view('chat', [

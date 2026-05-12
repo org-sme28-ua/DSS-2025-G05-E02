@@ -199,7 +199,7 @@ class AdminController extends Controller
             'topUsers',
             'tipos',
             'chartRows',
-            'adminTimeline'
+            'adminTimeline',
             'rankings',     
             'usuariosAdmin'
         ));

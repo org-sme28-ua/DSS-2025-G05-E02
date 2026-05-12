@@ -8,7 +8,7 @@
     <div class="page-header">
         <div>
             <h1 class="page-title">Mis apuestas</h1>
-            <p class="page-subtitle">Historial general: ruleta, predicciones y futuros juegos compartirán la tabla de apuestas.</p>
+            <p class="page-subtitle">Historial general de tus apuestas, predicciones y juegos disponibles.</p>
         </div>
     </div>
 

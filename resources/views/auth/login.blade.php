@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar sesión | Bookie 2.0</title>
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+    <link rel="icon" type="image/x-icon" href="{{ asset('assets/favicon/favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('assets/favicon/favicon-16x16.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('assets/favicon/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="48x48" href="{{ asset('assets/favicon/favicon-48x48.png') }}">
+    <link rel="icon" type="image/png" sizes="96x96" href="{{ asset('assets/favicon/favicon-96x96.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('assets/favicon/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('assets/favicon/android-chrome-192x192.png') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ asset('assets/favicon/android-chrome-512x512.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('assets/casino/favicon.png') }}">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
     <style>
         :root {
@@ -69,7 +78,15 @@
             color: #351010;
             font-weight: 900;
             cursor: pointer;
+            animation: goldPulse 2.4s ease-in-out infinite;
+            transition: transform .16s ease, box-shadow .16s ease;
         }
+        button:hover { transform: translateY(-2px); }
+        @keyframes goldPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(243,198,75,.28); }
+            50% { box-shadow: 0 0 0 10px rgba(243,198,75,0), 0 14px 26px rgba(243,198,75,.18); }
+        }
+        @media (prefers-reduced-motion: reduce) { button { animation: none; } }
         .error {
             background: var(--danger-bg);
             color: var(--danger);

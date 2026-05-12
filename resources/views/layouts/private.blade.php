@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Zona privada') | Bookie 2.0</title>
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+    <link rel="icon" type="image/x-icon" href="{{ asset('assets/favicon/favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('assets/favicon/favicon-16x16.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('assets/favicon/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="48x48" href="{{ asset('assets/favicon/favicon-48x48.png') }}">
+    <link rel="icon" type="image/png" sizes="96x96" href="{{ asset('assets/favicon/favicon-96x96.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('assets/favicon/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('assets/favicon/android-chrome-192x192.png') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ asset('assets/favicon/android-chrome-512x512.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('assets/casino/favicon.png') }}">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -109,7 +118,11 @@
             border: 1px solid var(--border); border-radius: 999px; padding: 12px 18px;
             background: var(--gold); color: #4b1717; font-weight: 700; text-decoration: none;
             cursor: pointer; font-family: inherit;
+            transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
         }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(0,0,0,.22); }
+        .btn:active { transform: translateY(0) scale(.98); }
+        .btn:not(.secondary):not(.danger) { animation: goldPulse 2.4s ease-in-out infinite; }
         .btn.secondary { background: rgba(255, 255, 255, 0.10); color: #ffffff; }
         .btn.danger { background: rgba(239, 154, 154, 0.14); color: var(--danger); }
         .stack { display: grid; gap: 18px; }
@@ -142,10 +155,49 @@
         .form-control:focus { outline: 3px solid rgba(240, 192, 64, .22); border-color: rgba(240, 192, 64, .5); }
         .error-list { margin: 0; padding-left: 20px; color: var(--danger); }
         .game-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
-        .game-card { min-height: 160px; display: flex; flex-direction: column; justify-content: space-between; color: var(--text); text-decoration: none; }
+        .game-card { min-height: 160px; display: flex; flex-direction: column; justify-content: space-between; color: var(--text); text-decoration: none; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
         .game-card strong { font-size: 24px; }
         .game-card span { font-size: 38px; }
-        .game-card:hover { border-color: rgba(240,192,64,.45); transform: translateY(-2px); }
+        .game-card:hover { border-color: rgba(240,192,64,.45); transform: translateY(-4px); box-shadow: 0 22px 44px rgba(0,0,0,.26); }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes goldPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(240,192,64,.26); }
+            50% { box-shadow: 0 0 0 9px rgba(240,192,64,0), 0 14px 26px rgba(240,192,64,.18); }
+        }
+        @keyframes softPulse {
+            0%, 100% { box-shadow: var(--shadow); }
+            50% { box-shadow: 0 22px 48px rgba(240,192,64,.12); }
+        }
+        .private-content > .page-header,
+        .private-content > .stack,
+        .private-content > .panel,
+        .private-content > section {
+            animation: fadeUp .42s ease both;
+        }
+        .stat-card,
+        .list-item,
+        .panel {
+            transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+        }
+        .stat-card:hover,
+        .list-item:hover {
+            transform: translateY(-2px);
+            border-color: rgba(240,192,64,.24);
+        }
+        .panel-highlight { animation: softPulse 5.5s ease-in-out infinite; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .btn:not(.secondary):not(.danger) { animation: none; }
+            .private-content > .page-header,
+            .private-content > .stack,
+            .private-content > .panel,
+            .private-content > section,
+            .panel-highlight { animation: none; }
+        }
 
         @media (max-width: 920px) {
             body { overflow: auto; }
