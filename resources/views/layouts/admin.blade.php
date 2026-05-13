@@ -17,6 +17,15 @@
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title>Bookie 2.0 — Panel de Administración</title>
 <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+<link rel="icon" type="image/x-icon" href="{{ asset('assets/favicon/favicon.ico') }}">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ asset('assets/favicon/favicon-16x16.png') }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ asset('assets/favicon/favicon-32x32.png') }}">
+<link rel="icon" type="image/png" sizes="48x48" href="{{ asset('assets/favicon/favicon-48x48.png') }}">
+<link rel="icon" type="image/png" sizes="96x96" href="{{ asset('assets/favicon/favicon-96x96.png') }}">
+<link rel="apple-touch-icon" href="{{ asset('assets/favicon/apple-touch-icon.png') }}">
+<link rel="icon" type="image/png" sizes="192x192" href="{{ asset('assets/favicon/android-chrome-192x192.png') }}">
+<link rel="icon" type="image/png" sizes="512x512" href="{{ asset('assets/favicon/android-chrome-512x512.png') }}">
+<link rel="icon" type="image/png" href="{{ asset('assets/casino/favicon.png') }}">
 <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -56,7 +65,8 @@
   .stat-label { font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .stat-value { font-size:25px; font-weight:800; color:white; }
   .grid-2 { display:grid; grid-template-columns:minmax(320px,1.1fr) minmax(280px,.9fr); gap:16px; align-items:start; }
-  .panel { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:18px; }
+  .panel { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:18px; animation:adminFadeUp .34s ease both; transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+  .panel:hover { border-color:rgba(240,192,64,.22); box-shadow:0 16px 32px rgba(0,0,0,.18); }
   .panel-pad { padding:18px; }
   .panel-title { margin:0 0 12px; font-size:16px; color:white; font-weight:800; }
   .toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 16px; border-bottom:1px solid var(--border); background:var(--bg-card2); }
@@ -64,10 +74,10 @@
   .input-sm:focus { outline:none; border-color:rgba(255,255,255,.3); }
   .input-sm::placeholder { color:var(--text-muted); }
   select.input-sm option { background:#2a0a0a; }
-  .btn { padding:8px 14px; border-radius:var(--radius-sm); border:1px solid var(--border); background:rgba(255,255,255,.10); color:var(--text); font-family:inherit; font-size:12px; font-weight:700; cursor:pointer; transition:.15s; display:inline-flex; align-items:center; justify-content:center; gap:6px; text-decoration:none; line-height:1.1; white-space:nowrap; }
-  .btn:hover { background:rgba(255,255,255,.18); }
+  .btn { padding:8px 14px; border-radius:var(--radius-sm); border:1px solid var(--border); background:rgba(255,255,255,.10); color:var(--text); font-family:inherit; font-size:12px; font-weight:700; cursor:pointer; transition:background .15s ease, transform .15s ease, box-shadow .15s ease; display:inline-flex; align-items:center; justify-content:center; gap:6px; text-decoration:none; line-height:1.1; white-space:nowrap; }
+  .btn:hover { background:rgba(255,255,255,.18); transform:translateY(-1px); box-shadow:0 8px 16px rgba(0,0,0,.18); }
   .btn-primary { background:var(--accent); border-color:var(--accent); color:white; }
-  .btn-gold { background:var(--gold); border-color:var(--gold); color:#3b1212; }
+  .btn-gold { background:var(--gold); border-color:var(--gold); color:#3b1212; animation:goldPulse 2.4s ease-in-out infinite; }
   .btn-danger { background:rgba(231,76,60,.18); border-color:rgba(231,76,60,.35); color:#ffadad; }
   .btn-success { background:rgba(46,204,113,.18); border-color:rgba(46,204,113,.35); color:#9ff0bd; }
   .btn-sm { padding:6px 10px; font-size:11px; min-height:30px; }
@@ -129,6 +139,11 @@
   .mini-card b { display:block; font-size:18px; color:white; margin-top:4px; }
   @media (max-width:980px) { .admin-layout { flex-direction:column; } .sidebar { width:auto; min-width:0; height:auto; position:static; } .grid-2 { grid-template-columns:1fr; } .content { padding:18px; } }
   @media (max-width:760px) { .inline-form { flex-wrap:wrap; justify-content:flex-start; } td.actions, td.actions-cell { white-space:normal; min-width:210px; } .action-buttons { flex-wrap:wrap; justify-content:flex-end; } }
+  @keyframes adminFadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes goldPulse { 0%,100% { box-shadow:0 0 0 0 rgba(240,192,64,.26); } 50% { box-shadow:0 0 0 8px rgba(240,192,64,0), 0 12px 24px rgba(240,192,64,.16); } }
+  @media (prefers-reduced-motion: reduce) { .btn-gold { animation:none; } .panel, .stat-card { animation:none; } }
+  .stat-card { animation:adminFadeUp .3s ease both; transition:transform .15s ease, border-color .15s ease; }
+  .stat-card:hover { transform:translateY(-2px); border-color:rgba(240,192,64,.26); }
 </style>
 </head>
 <body>
@@ -169,7 +184,7 @@
       <div class="page-header">
         <div>
           <h1 class="page-title">{{ ucfirst($section) }}</h1>
-          <p class="page-subtitle">Control de usuarios, apuestas, juegos y predicciones sin añadir tablas nuevas. Las predicciones y la ruleta se guardan en <strong>apuestas</strong>.</p>
+          <p class="page-subtitle">Control de usuarios, apuestas, juegos, predicciones, billeteras y actividad general de la plataforma.</p>
         </div>
       </div>
 
@@ -228,7 +243,7 @@
         <section class="panel">
           <div class="panel-pad">
             <h2 class="panel-title">Evolución económica de los últimos 14 días</h2>
-            <p class="muted">El gráfico usa solo la tabla <strong>apuestas</strong> y muestra una única gráfica temporal con tres líneas: dinero apostado, ganado por usuarios y perdido por usuarios.</p>
+            <p class="muted">Evolución temporal de dinero apostado, ganado por usuarios y perdido por usuarios.</p>
             @php
               $timeline = collect($adminTimeline ?? []);
               $chartWidth = 1000;

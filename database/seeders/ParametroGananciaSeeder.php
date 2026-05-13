@@ -18,13 +18,13 @@ class ParametroGananciaSeeder extends Seeder
                 'multiplicacion_por_juego' => 2.00,
                 'bonus_por_racha' => 10.00,
             ],
-            'Slot Machine' => [
-                'multiplicacion_por_juego' => 3.00,
-                'bonus_por_racha' => 25.00,
+            'Dados' => [
+                'multiplicacion_por_juego' => 2.00,
+                'bonus_por_racha' => 8.00,
             ],
-            'Bingo' => [
-                'multiplicacion_por_juego' => 2.50,
-                'bonus_por_racha' => 15.00,
+            'Cara o Cruz' => [
+                'multiplicacion_por_juego' => 2.00,
+                'bonus_por_racha' => 8.00,
             ],
             'Predicción' => [
                 'multiplicacion_por_juego' => 2.00,

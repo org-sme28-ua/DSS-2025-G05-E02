@@ -58,11 +58,16 @@
             transition: background .18s ease, border-color .18s ease, transform .18s ease;
         }
 
+        .chat-card {
+            animation: chatFadeIn .34s ease both;
+        }
+
         .chat-card:hover,
         .chat-card.active {
             background: rgba(240, 192, 64, 0.12);
             border-color: rgba(240, 192, 64, 0.38);
-            transform: translateY(-1px);
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: 0 12px 26px rgba(0,0,0,.18);
         }
 
         .chat-avatar {
@@ -186,10 +191,30 @@
             padding-top: 16px;
         }
 
+        .suggested-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin: 16px 0 8px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 900;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+        }
+
+        .suggested-heading span:last-child {
+            color: var(--gold);
+            font-size: 12px;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
         .suggested-users {
             display: grid;
             gap: 8px;
-            margin-top: 12px;
+            margin-top: 8px;
         }
 
         .suggested-user {
@@ -207,8 +232,24 @@
             text-align: left;
         }
 
+        .suggested-user {
+            transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+        }
+
         .suggested-user:hover {
-            border-color: rgba(240, 192, 64, .36);
+            border-color: rgba(240, 192, 64, .45);
+            background: rgba(240, 192, 64, .10);
+            transform: translateX(3px);
+            box-shadow: 0 10px 22px rgba(0,0,0,.16);
+        }
+
+        .message-row {
+            animation: chatFadeIn .28s ease both;
+        }
+
+        @keyframes chatFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .add-friend-form {
@@ -281,8 +322,11 @@
                         <button class="btn btn-icon" type="submit" title="Añadir amigo">+</button>
                     </form>
 
-                    <p class="label" style="margin-top: 16px;">Mis Amigos</p>
-                    @if (isset($amigos) && $amigos->isNotEmpty())
+                    @if ($suggestedUsers->isNotEmpty())
+                        <div class="suggested-heading">
+                            <span>Recomendaciones</span>
+                            <span>Máx. 4</span>
+                        </div>
                         <div class="suggested-users">
                             @foreach ($amigos as $amigo)
                                 <form method="POST" action="{{ route('private.chat.start') }}">
