@@ -322,7 +322,7 @@
                         <button class="btn btn-icon" type="submit" title="Añadir amigo">+</button>
                     </form>
 
-                    @if ($suggestedUsers->isNotEmpty())
+                    @if (isset($amigos) && $amigos->isNotEmpty())
                         <div class="suggested-heading">
                             <span>Recomendaciones</span>
                             <span>Máx. 4</span>
