@@ -160,6 +160,8 @@
       <a class="nav-item {{ $active('juegos') }}" href="{{ $sectionUrl('juegos') }}">🎮 Juegos</a>
       <a class="nav-item {{ $active('billeteras') }}" href="{{ $sectionUrl('billeteras') }}">💳 Billeteras</a>
       <a class="nav-item {{ $active('notificaciones') }}" href="{{ $sectionUrl('notificaciones') }}">🔔 Notificaciones</a>
+      <a class="nav-item {{ $active('chats') }}" href="{{ $sectionUrl('chats') }}">💬 Chats</a>
+      <a class="nav-item {{ $active('amigos') }}" href="{{ $sectionUrl('amigos') }}">🤝 Amigos</a>
 <a class="nav-item {{ $active('rankings') }}" href="{{ $sectionUrl('rankings') }}">🏆 Rankings</a>
     </nav>
     <div class="sidebar-bottom">
@@ -449,6 +451,81 @@
             @endforeach
           </tbody></table></div>
           <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $notificaciones])</div>
+        </section>
+      @endif
+
+{{-- ════════════════════════════════════
+           SECCIÓN CHATS 
+           ════════════════════════════════════ --}}
+      @if ($section === 'chats')
+        @php
+          $chats = \App\Models\Chat::with(['userOne', 'userTwo'])->withCount('mensajes')->paginate(15);
+        @endphp
+        <section class="panel">
+          <div class="panel-pad"><h2 class="panel-title">Chats del Sistema</h2><p class="muted">Conversaciones privadas entre usuarios.</p></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>ID</th><th>Nombre</th><th>Participantes</th><th>Nº Mensajes</th><th>Acciones</th></tr></thead>
+              <tbody>
+                @forelse($chats as $chat)
+                  <tr>
+                    <td>#{{ $chat->id }}</td>
+                    <td><strong>{{ $chat->nombre ?: 'Chat Privado' }}</strong></td>
+                    <td>{{ $chat->userOne->name ?? 'Usuario 1' }} y {{ $chat->userTwo->name ?? 'Usuario 2' }}</td>
+                    <td><span class="badge badge-info">{{ $chat->mensajes_count }} mensajes</span></td>
+                    <td class="actions">
+                      <form method="POST" action="{{ route('admin.chats.destroy', $chat->id) }}" onsubmit="return confirm('¿Borrar este chat y todos sus mensajes?')">
+                        @csrf @method('DELETE')
+                        <button class="btn btn-sm btn-danger">🗑 Eliminar</button>
+                      </form>
+                    </td>
+                  </tr>
+                @empty
+                  <tr><td colspan="5" class="muted" style="text-align:center;">No hay chats registrados.</td></tr>
+                @endforelse
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $chats])</div>
+        </section>
+      @endif
+
+      {{-- ════════════════════════════════════
+           SECCIÓN AMIGOS 
+           ════════════════════════════════════ --}}
+      @if ($section === 'amigos')
+        @php
+          $amigos = \DB::table('user_user')
+              ->join('users as u1', 'user_user.user_id', '=', 'u1.id')
+              ->join('users as u2', 'user_user.friend_id', '=', 'u2.id')
+              ->select('user_user.*', 'u1.name as user_name', 'u2.name as friend_name', 'u1.email as user_email')
+              ->paginate(15);
+        @endphp
+        <section class="panel">
+          <div class="panel-pad"><h2 class="panel-title">Relaciones de Amistad</h2></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Usuario Principal</th><th>Amigo Vinculado</th><th>Fecha de vínculo</th><th>Acciones</th></tr></thead>
+              <tbody>
+                @forelse($amigos as $amigo)
+                  <tr>
+                    <td><strong>{{ $amigo->user_name }}</strong><div class="muted">{{ $amigo->user_email }}</div></td>
+                    <td><strong>{{ $amigo->friend_name }}</strong></td>
+                    <td>{{ $amigo->created_at ? \Carbon\Carbon::parse($amigo->created_at)->format('d/m/Y') : '-' }}</td>
+                    <td class="actions">
+                      <form method="POST" action="{{ route('admin.amigos.destroy', $amigo->user_id . '-' . $amigo->friend_id) }}" onsubmit="return confirm('¿Romper esta amistad?')">
+                        @csrf @method('DELETE')
+                        <button class="btn btn-sm btn-danger">🗑 Eliminar</button>
+                      </form>
+                    </td>
+                  </tr>
+                @empty
+                  <tr><td colspan="4" class="muted" style="text-align:center;">No hay amistades registradas.</td></tr>
+                @endforelse
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $amigos])</div>
         </section>
       @endif
 {{-- ══════════════════════════════════════════════════════════
