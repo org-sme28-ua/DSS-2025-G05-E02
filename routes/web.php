@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Route;
 // RUTAS PÚBLICAS
 // ============================================================
 Route::view('/', 'public.home')->name('public.home');
+Route::view('/sobre-nosotros', 'public.about')->name('public.about');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
