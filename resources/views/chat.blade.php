@@ -252,6 +252,23 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        .add-friend-form {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .add-friend-form input {
+            flex: 1;
+        }
+
+        .add-friend-form .btn-icon {
+            padding: 8px 12px;
+            font-weight: bold;
+            font-size: 18px;
+            line-height: 1;
+        }
+
         @media (max-width: 980px) {
             .chat-layout {
                 grid-template-columns: 1fr;
@@ -266,14 +283,17 @@
 
     <div class="page-header">
         <div>
-            <h1 class="page-title">Chat</h1>
-            <p class="page-subtitle">Mensajes privados entre usuarios. Busca a alguien por email o nombre, abre conversación y empieza a hablar.</p>
+            <h1 class="page-title">Chat y Amigos</h1>
+            <p class="page-subtitle">Añade amigos por su email y abre una conversación privada con ellos.</p>
         </div>
     </div>
 
     <div class="stack">
         @if (session('success'))
             <div class="alert success">{{ session('success') }}</div>
+        @endif
+        @if (session('error'))
+            <div class="alert error">{{ session('error') }}</div>
         @endif
 
         @if ($errors->any())
@@ -289,52 +309,54 @@
         <section class="chat-layout">
             <aside class="panel chat-sidebar-panel">
                 <div class="chat-form-card">
-                    <p class="label">Nuevo chat</p>
-                    <form method="POST" action="{{ route('private.chat.start') }}" class="form-grid">
+                    <p class="label">Añadir nuevo amigo</p>
+                    <form method="POST" action="{{ route('private.amigos.add') }}" class="add-friend-form">
                         @csrf
-                        <div class="form-group">
-                            <label class="form-label" for="recipient">Email o nombre de usuario</label>
-                            <input
-                                id="recipient"
-                                class="form-control"
-                                type="text"
-                                name="recipient"
-                                value="{{ old('recipient') }}"
-                                placeholder="ej. lucia@bookie20.test"
-                                autocomplete="off"
-                            >
-                        </div>
-                        <button class="btn" type="submit">Abrir chat</button>
+                        <input
+                            class="form-control"
+                            type="email"
+                            name="email"
+                            placeholder="Email de tu amigo..."
+                            required
+                        >
+                        <button class="btn btn-icon" type="submit" title="Añadir amigo">+</button>
                     </form>
 
-                    @if ($suggestedUsers->isNotEmpty())
+                    @if (isset($amigos) && $amigos->isNotEmpty())
                         <div class="suggested-heading">
                             <span>Recomendaciones</span>
                             <span>Máx. 4</span>
                         </div>
                         <div class="suggested-users">
-                            @foreach ($suggestedUsers as $suggestedUser)
+                            @foreach ($amigos as $amigo)
                                 <form method="POST" action="{{ route('private.chat.start') }}">
                                     @csrf
-                                    <input type="hidden" name="recipient" value="{{ $suggestedUser->email }}">
-                                    <button class="suggested-user" type="submit">
-                                        <span>
-                                            <strong>{{ $suggestedUser->name }}</strong><br>
-                                            <span class="muted">{{ $suggestedUser->email }}</span>
-                                        </span>
-                                        <span class="badge {{ $suggestedUser->role === 'admin' ? 'pendiente' : 'info' }}">{{ $suggestedUser->role }}</span>
+                                    <input type="hidden" name="recipient" value="{{ $amigo->email }}">
+                                    <button class="suggested-user" type="submit" title="Abrir chat">
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <div class="chat-avatar" style="width: 32px; height: 32px; font-size: 11px;">
+                                                {{ strtoupper(substr($amigo->name, 0, 2)) }}
+                                            </div>
+                                            <span>
+                                                <strong>{{ $amigo->name }}</strong><br>
+                                                <span class="muted" style="font-size: 11px;">{{ $amigo->email }}</span>
+                                            </span>
+                                        </div>
+                                        <span class="muted">💬</span>
                                     </button>
                                 </form>
                             @endforeach
                         </div>
+                    @else
+                        <p class="empty-state" style="padding: 10px;">Aún no has añadido amigos.</p>
                     @endif
                 </div>
 
                 <div>
-                    <p class="label">Conversaciones</p>
+                    <p class="label">Conversaciones activas</p>
 
                     @if ($chats->isEmpty())
-                        <p class="empty-state">Todavía no tienes conversaciones. Abre un chat usando el buscador de arriba.</p>
+                        <p class="empty-state">No tienes conversaciones abiertas.</p>
                     @else
                         <div class="chat-list">
                             @foreach ($chats as $chat)
@@ -353,7 +375,7 @@
                                             @if ($lastMessage)
                                                 {{ $lastMessage->emisor_id === auth()->id() ? 'Tú: ' : '' }}{{ \Illuminate\Support\Str::limit($lastMessage->contenido, 58) }}
                                             @else
-                                                Conversación abierta. Envía el primer mensaje.
+                                                Conversación abierta.
                                             @endif
                                         </div>
                                     </div>
@@ -374,7 +396,7 @@
                 @if (! $activeChat)
                     <div class="empty-state" style="margin:auto; max-width:520px; text-align:center;">
                         <strong style="display:block; color:#fff; font-size:22px; margin-bottom:8px;">Selecciona o abre una conversación</strong>
-                        <span>Cuando entres en un chat, aquí aparecerán los mensajes y el cuadro para escribir.</span>
+                        <span>Haz clic en uno de tus amigos o elige un chat activo de la lista para empezar a hablar.</span>
                     </div>
                 @else
                     @php
@@ -418,7 +440,7 @@
                         @csrf
                         <div class="form-group">
                             <label class="form-label" for="contenido">Mensaje</label>
-                            <textarea id="contenido" name="contenido" class="form-control" rows="3" placeholder="Escribe tu mensaje...">{{ old('contenido') }}</textarea>
+                            <textarea id="contenido" name="contenido" class="form-control" rows="3" placeholder="Escribe tu mensaje..."></textarea>
                         </div>
                         <div class="actions" style="margin-top:12px; justify-content:flex-end;">
                             <button class="btn" type="submit">Enviar mensaje</button>

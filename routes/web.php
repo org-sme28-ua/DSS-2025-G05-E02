@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Route;
 // RUTAS PÚBLICAS
 // ============================================================
 Route::view('/', 'public.home')->name('public.home');
+Route::view('/sobre-nosotros', 'public.about')->name('public.about');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -148,8 +149,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/chat', [ChatController::class, 'index'])->name('private.chat');
     Route::post('/chat/start', [ChatController::class, 'start'])->name('private.chat.start');
     Route::get('/chat/{chat}', [ChatController::class, 'showConversation'])->name('private.chat.show');
-    Route::post('/chat/{chat}/mensaje', [ChatController::class, 'sendMessage'])->name('private.chat.message');
-
+    Route::post('/chat/{chat}/mensaje', [ChatController::class, 'sendMessage'])->name('private.chat.message');  
+    Route::post('/amigos/add', [UserController::class, 'addFriendFront'])->name('private.amigos.add');
     Route::view('/configuracion', 'configuracion')->name('private.configuracion');
 
     Route::get('/ruleta', [RouletteController::class, 'index'])->name('roulette.index');
@@ -180,7 +181,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/usuarios', [UserController::class, 'crear'])->name('admin.usuarios.store');
         Route::put('/usuarios/{user}', [UserController::class, 'actualizar'])->name('admin.usuarios.update');
         Route::delete('/usuarios/{user}', [UserController::class, 'eliminar'])->name('admin.usuarios.destroy');
-
+        Route::delete('/amigos/{ids}', [UserController::class, 'quitarAmistadAdmin'])->name('admin.amigos.destroy');
         Route::get('/apuestas/data', [ApuestaController::class, 'getData'])->name('admin.apuestas.data');
         Route::get('/apuestas/{apuesta}', [ApuestaController::class, 'show'])->name('admin.apuestas.show');
         Route::post('/apuestas', [ApuestaController::class, 'store'])->name('admin.apuestas.store');

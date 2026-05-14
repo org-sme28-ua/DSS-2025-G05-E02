@@ -85,6 +85,19 @@
             gap: 10px;
             flex-wrap: wrap;
             justify-content: flex-end;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--muted);
+            text-decoration: none;
+            font-weight: bold;
+            margin-right: 15px;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--gold);
         }
 
         .hero {
@@ -344,6 +357,27 @@
             margin-bottom: 4px;
         }
 
+        .footer {
+            margin-top: 60px;
+            padding-top: 30px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .footer a {
+            color: var(--gold);
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
         @keyframes fadeUp {
             from { opacity: 0; transform: translateY(16px); }
             to { opacity: 1; transform: translateY(0); }
@@ -364,6 +398,7 @@
 
             .card { padding: 28px; }
             .image-frame img { min-height: 300px; }
+            .footer { flex-direction: column; gap: 15px; text-align: center; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -373,8 +408,9 @@
 
         @media (max-width: 560px) {
             .landing { width: min(100% - 28px, 1180px); padding-top: 18px; }
-            .top-nav { align-items: flex-start; flex-direction: column; }
-            .nav-actions { justify-content: flex-start; }
+            .top-nav { align-items: flex-start; flex-direction: column; gap: 20px; }
+            .nav-actions { justify-content: flex-start; width: 100%; }
+            .nav-link { margin-bottom: 10px; width: 100%; }
             .btn { width: 100%; }
             .actions { width: 100%; }
         }
@@ -388,6 +424,7 @@
                 <span>Bookie 2.0</span>
             </a>
             <div class="nav-actions">
+                <a class="nav-link" href="{{ route('public.about') }}">Sobre Nosotros</a>
                 <a class="btn btn-secondary" href="{{ route('login') }}">Iniciar sesión</a>
                 <a class="btn btn-primary" href="{{ route('register') }}">Registrarse</a>
             </div>
@@ -498,6 +535,15 @@
                 </article>
             </div>
         </section>
+        
+        <footer class="footer">
+            <div>
+                &copy; {{ date('Y') }} Bookie 2.0. Juega con responsabilidad.
+            </div>
+            <div>
+                <a href="{{ route('public.about') }}">Conoce más sobre nosotros</a>
+            </div>
+        </footer>
     </main>
 </body>
 </html>
