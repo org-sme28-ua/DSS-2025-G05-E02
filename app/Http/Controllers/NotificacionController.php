@@ -109,13 +109,18 @@ class NotificacionController extends Controller
             'tipo' => 'required|string|in:apuesta,promo,alerta,chat,info,mensaje,sistema',
             'titulo' => 'required|string|max:255',
             'mensaje' => 'nullable|string',
-            'leido' => 'boolean',
+            'leido' => 'nullable|boolean',
             'fecha' => 'required|date',
         ]);
 
+        $data['leido'] = (bool) ($data['leido'] ?? false);
         $notificacion = Notificacion::create($data);
 
-        return response()->json(['success' => true, 'data' => $notificacion, 'message' => 'Notificacion creada correctamente'], 201);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $notificacion, 'message' => 'Notificación creada correctamente'], 201);
+        }
+
+        return back()->with('success', 'Notificación creada correctamente.');
     }
 
     public function update(Request $request, $id)
@@ -126,24 +131,36 @@ class NotificacionController extends Controller
             'user_id' => 'sometimes|exists:users,id',
             'tipo' => 'sometimes|string|in:apuesta,promo,alerta,chat,info,mensaje,sistema',
             'titulo' => 'sometimes|string|max:255',
-            'mensaje' => 'nullable|string',
-            'leido' => 'boolean',
+            'mensaje' => 'sometimes|nullable|string',
+            'leido' => 'sometimes|boolean',
             'fecha' => 'sometimes|date',
         ]);
 
         $notificacion->update($data);
 
-        return response()->json(['success' => true, 'data' => $notificacion, 'message' => 'Notificacion actualizada']);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $notificacion->fresh(), 'message' => 'Notificación actualizada']);
+        }
+
+        return back()->with('success', 'Notificación actualizada correctamente.');
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         try {
             $notificacion = Notificacion::findOrFail($id);
             $notificacion->delete();
-            return response()->json(['success' => true, 'message' => 'Notificacion eliminada']);
+
+            if ($request->expectsJson()) {
+                return response()->json(['success' => true, 'message' => 'Notificación eliminada']);
+            }
+
+            return back()->with('success', 'Notificación eliminada correctamente.');
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Error al eliminar: ' . $e->getMessage()], 500);
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Error al eliminar: ' . $e->getMessage()], 500);
+            }
+            return back()->with('error', 'Error al eliminar: ' . $e->getMessage());
         }
     }
 

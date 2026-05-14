@@ -10,6 +10,5 @@ class Setting extends Model
     
     protected $casts = [
         'activo' => 'boolean',
-        'valor' => 'integer',
     ];
 }

@@ -11,27 +11,33 @@ class JuegoController extends Controller
     {
         $query = Juego::query();
 
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
-            $query->where('nombre', 'like', '%' . $search . '%')
-                  ->orWhere('categoria', 'like', '%' . $search . '%');
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre', 'like', $search)
+                    ->orWhere('categoria', 'like', $search)
+                    ->orWhere('estado', 'like', $search);
+            });
         }
 
-        if ($request->has('estado') && $request->estado !== '') {
+        if ($request->filled('estado')) {
             $query->where('estado', $request->estado);
         }
 
-        $sort = $request->get('sort', 'id');
-        $dir = $request->get('dir', 'asc');
-        $query->orderBy($sort, $dir);
+        if ($request->filled('categoria')) {
+            $query->where('categoria', $request->categoria);
+        }
 
-        $perPage = $request->get('per', 6);
-        return response()->json($query->paginate($perPage));
+        $allowedSorts = ['id', 'nombre', 'categoria', 'estado', 'created_at'];
+        $sort = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'id';
+        $dir = $request->get('dir') === 'desc' ? 'desc' : 'asc';
+
+        return response()->json($query->orderBy($sort, $dir)->paginate((int) $request->get('per', 10)));
     }
 
     public function show($id)
     {
-        return response()->json(Juego::findOrFail($id));
+        return response()->json(Juego::with('apuestas')->findOrFail($id));
     }
 
     public function store(Request $request)
@@ -44,11 +50,11 @@ class JuegoController extends Controller
 
         $juego = Juego::create($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $juego,
-            'message' => 'Juego creado correctamente'
-        ], 201);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $juego, 'message' => 'Juego creado correctamente'], 201);
+        }
+
+        return back()->with('success', 'Juego creado correctamente.');
     }
 
     public function update(Request $request, $id)
@@ -56,28 +62,37 @@ class JuegoController extends Controller
         $juego = Juego::findOrFail($id);
 
         $data = $request->validate([
-            'nombre' => 'sometimes|string|max:255',
-            'categoria' => 'sometimes|string|max:255',
-            'estado' => 'sometimes|string|max:255',
+            'nombre' => 'sometimes|required|string|max:255',
+            'categoria' => 'sometimes|required|string|max:255',
+            'estado' => 'sometimes|required|string|max:255',
         ]);
 
         $juego->update($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $juego,
-            'message' => 'Juego actualizado correctamente'
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $juego->fresh(), 'message' => 'Juego actualizado correctamente']);
+        }
+
+        return back()->with('success', 'Juego actualizado correctamente.');
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $juego = Juego::findOrFail($id);
+
+        if ($juego->apuestas()->exists()) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'No se puede eliminar un juego con apuestas asociadas.'], 422);
+            }
+            return back()->with('error', 'No se puede eliminar un juego con apuestas asociadas.');
+        }
+
         $juego->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Juego eliminado correctamente'
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Juego eliminado correctamente']);
+        }
+
+        return back()->with('success', 'Juego eliminado correctamente.');
     }
 }

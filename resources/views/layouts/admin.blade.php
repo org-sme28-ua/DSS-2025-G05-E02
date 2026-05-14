@@ -8,6 +8,7 @@
         default => 'badge-muted',
     };
     $sectionUrl = fn ($name, $extra = []) => route('admin.panel', array_merge(['section' => $name], $extra));
+    $dateInput = fn ($date) => $date ? \Illuminate\Support\Carbon::parse($date)->format('Y-m-d\TH:i') : '';
 @endphp
 <!DOCTYPE html>
 <html lang="es">
@@ -20,173 +21,65 @@
 <link rel="icon" type="image/x-icon" href="{{ asset('assets/favicon/favicon.ico') }}">
 <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('assets/favicon/favicon-16x16.png') }}">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('assets/favicon/favicon-32x32.png') }}">
-<link rel="icon" type="image/png" sizes="48x48" href="{{ asset('assets/favicon/favicon-48x48.png') }}">
-<link rel="icon" type="image/png" sizes="96x96" href="{{ asset('assets/favicon/favicon-96x96.png') }}">
 <link rel="apple-touch-icon" href="{{ asset('assets/favicon/apple-touch-icon.png') }}">
-<link rel="icon" type="image/png" sizes="192x192" href="{{ asset('assets/favicon/android-chrome-192x192.png') }}">
-<link rel="icon" type="image/png" sizes="512x512" href="{{ asset('assets/favicon/android-chrome-512x512.png') }}">
-<link rel="icon" type="image/png" href="{{ asset('assets/casino/favicon.png') }}">
-<link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:#1a0505; --bg-card:#2a0a0a; --bg-card2:#3d1212; --sidebar:#4a1010;
-    --sidebar-active:#2a0606; --accent:#c0392b; --gold:#f0c040; --text:#f5e6e6;
-    --text-muted:#c4a0a0; --border:rgba(255,255,255,.12); --success:#2ecc71;
-    --danger:#e74c3c; --warning:#f39c12; --info:#3498db; --radius:12px; --radius-sm:8px;
-  }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
-  a { color:inherit; }
-  .admin-layout { display:flex; min-height:100vh; }
-  .sidebar { width:252px; min-width:252px; background:var(--sidebar); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
-  .sidebar-logo { display:flex; align-items:center; gap:10px; padding:20px 20px 16px; border-bottom:1px solid var(--border); }
-  .logo-icon { width:40px; height:40px; background:var(--gold); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
-  .logo-text { font-family:'Playfair Display',serif; font-size:18px; color:white; }
-  .logo-badge { margin-left:auto; background:var(--accent); color:white; font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; }
-  .sidebar-section { padding:12px 14px 4px; font-size:10px; font-weight:700; letter-spacing:1.2px; color:var(--text-muted); text-transform:uppercase; }
-  .sidebar-nav { flex:1; padding:8px 12px; display:flex; flex-direction:column; gap:4px; }
-  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-muted); font-size:13px; font-weight:600; text-decoration:none; transition:.15s; }
-  .nav-item:hover { background:rgba(255,255,255,.08); color:var(--text); }
-  .nav-item.active { background:var(--sidebar-active); color:white; border-left:3px solid var(--gold); }
-  .sidebar-bottom { padding:12px; border-top:1px solid var(--border); }
-  .main { flex:1; min-width:0; }
-  .topbar { background:#2a0808; padding:12px 24px; display:flex; align-items:center; gap:14px; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; }
-  .topbar-title { font-family:'Playfair Display',serif; font-size:16px; color:var(--gold); }
-  .topbar-spacer { flex:1; }
-  .user-chip { display:flex; align-items:center; gap:8px; color:var(--text-muted); font-weight:700; font-size:13px; }
-  .user-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#c0392b,#e74c3c); display:flex; align-items:center; justify-content:center; font-weight:900; color:white; border:2px solid var(--gold); }
-  .content { padding:24px 28px; }
-  .page-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:22px; }
-  .page-title { margin:0; font-family:'Playfair Display',serif; font-size:30px; color:white; }
-  .page-subtitle { margin:5px 0 0; font-size:13px; color:var(--text-muted); max-width:780px; line-height:1.5; }
-  .stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:22px; }
-  .stat-card { background:var(--bg-card2); border-radius:var(--radius); padding:16px 18px; border:1px solid var(--border); }
-  .stat-label { font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
-  .stat-value { font-size:25px; font-weight:800; color:white; }
-  .grid-2 { display:grid; grid-template-columns:minmax(320px,1.1fr) minmax(280px,.9fr); gap:16px; align-items:start; }
-  .panel { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:18px; animation:adminFadeUp .34s ease both; transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
-  .panel:hover { border-color:rgba(240,192,64,.22); box-shadow:0 16px 32px rgba(0,0,0,.18); }
-  .panel-pad { padding:18px; }
-  .panel-title { margin:0 0 12px; font-size:16px; color:white; font-weight:800; }
-  .toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 16px; border-bottom:1px solid var(--border); background:var(--bg-card2); }
-  .input-sm { background:rgba(255,255,255,.08); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 12px; color:var(--text); font-size:12px; font-family:inherit; }
-  .input-sm:focus { outline:none; border-color:rgba(255,255,255,.3); }
-  .input-sm::placeholder { color:var(--text-muted); }
-  select.input-sm option { background:#2a0a0a; }
-  .btn { padding:8px 14px; border-radius:var(--radius-sm); border:1px solid var(--border); background:rgba(255,255,255,.10); color:var(--text); font-family:inherit; font-size:12px; font-weight:700; cursor:pointer; transition:background .15s ease, transform .15s ease, box-shadow .15s ease; display:inline-flex; align-items:center; justify-content:center; gap:6px; text-decoration:none; line-height:1.1; white-space:nowrap; }
-  .btn:hover { background:rgba(255,255,255,.18); transform:translateY(-1px); box-shadow:0 8px 16px rgba(0,0,0,.18); }
-  .btn-primary { background:var(--accent); border-color:var(--accent); color:white; }
-  .btn-gold { background:var(--gold); border-color:var(--gold); color:#3b1212; animation:goldPulse 2.4s ease-in-out infinite; }
-  .btn-danger { background:rgba(231,76,60,.18); border-color:rgba(231,76,60,.35); color:#ffadad; }
-  .btn-success { background:rgba(46,204,113,.18); border-color:rgba(46,204,113,.35); color:#9ff0bd; }
-  .btn-sm { padding:6px 10px; font-size:11px; min-height:30px; }
-  .table-scroll { width:100%; overflow-x:auto; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  th { padding:12px 14px; text-align:left; color:var(--text-muted); font-weight:800; font-size:11px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--border); white-space:nowrap; }
-  td { padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.06); vertical-align:middle; }
-  tr:hover td { background:rgba(255,255,255,.03); }
-  .muted { color:var(--text-muted); font-size:12px; line-height:1.45; }
-  .badge { display:inline-flex; align-items:center; padding:4px 9px; border-radius:20px; font-size:11px; font-weight:800; letter-spacing:.2px; white-space:nowrap; }
-  .badge-success { background:rgba(46,204,113,.18); color:#2ecc71; border:1px solid rgba(46,204,113,.3); }
-  .badge-danger { background:rgba(231,76,60,.18); color:#e74c3c; border:1px solid rgba(231,76,60,.3); }
-  .badge-warning { background:rgba(243,156,18,.18); color:#f39c12; border:1px solid rgba(243,156,18,.3); }
-  .badge-info { background:rgba(52,152,219,.18); color:#3498db; border:1px solid rgba(52,152,219,.3); }
-  .badge-muted { background:rgba(255,255,255,.08); color:#aaa; border:1px solid rgba(255,255,255,.1); }
-  table th:last-child, table td:last-child { text-align:right; }
-  td.actions, td.actions-cell { text-align:right; white-space:nowrap; min-width:260px; width:1%; vertical-align:middle; }
-  td.actions { display:table-cell; }
-  .action-buttons { display:inline-flex; justify-content:flex-end; align-items:center; gap:6px; flex-wrap:nowrap; min-height:32px; vertical-align:middle; }
-  .actions:not(td) { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center; }
-  .inline-form { display:inline-flex; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:nowrap; width:auto; min-height:34px; vertical-align:middle; }
-  .inline-form .input-sm { width:170px; max-width:170px; height:32px; }
-  .alert { padding:12px 14px; border-radius:var(--radius); margin-bottom:14px; border:1px solid var(--border); background:var(--bg-card2); }
-  .alert-success { color:#9ff0bd; } .alert-error { color:#ffadad; }
-  .pagination-wrap { padding:12px 16px; background:var(--bg-card2); border-top:1px solid var(--border); }
-  .pagination-wrap:empty { display:none; }
-  .custom-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-  .pagination-summary { color:var(--text-muted); font-size:12px; }
-  .pagination-buttons { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-  .page-btn { display:inline-flex; align-items:center; justify-content:center; min-width:34px; min-height:32px; padding:7px 10px; border-radius:10px; background:rgba(255,255,255,.08); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:12px; font-weight:800; }
-  .page-btn:hover { background:rgba(255,255,255,.16); }
-  .page-btn.active { background:var(--gold); border-color:var(--gold); color:#3b1212; }
-  .page-btn.disabled { opacity:.45; cursor:not-allowed; }
-  .admin-timeline { display:grid; gap:14px; margin-top:14px; }
-  .timeline-line-chart { position:relative; min-height:300px; padding:14px; border:1px solid var(--border); border-radius:14px; background:rgba(255,255,255,.04); overflow-x:auto; }
-  .line-chart-svg { display:block; width:100%; min-width:760px; height:280px; }
-  .chart-grid { stroke:rgba(255,255,255,.10); stroke-width:1; }
-  .chart-axis { stroke:rgba(255,255,255,.24); stroke-width:1.5; }
-  .chart-line { fill:none; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
-  .chart-line.apostado { stroke:var(--gold); }
-  .chart-line.ganado { stroke:var(--success); }
-  .chart-line.perdido { stroke:var(--danger); }
-  .chart-point { stroke:#2a0a0a; stroke-width:2; vector-effect:non-scaling-stroke; }
-  .chart-point.apostado { fill:var(--gold); }
-  .chart-point.ganado { fill:var(--success); }
-  .chart-point.perdido { fill:var(--danger); }
-  .chart-label { fill:var(--text-muted); font-size:12px; font-weight:800; }
-  .chart-value-label { fill:var(--text-muted); font-size:11px; }
-  .chart-legend { display:flex; gap:14px; flex-wrap:wrap; color:var(--text-muted); font-size:12px; margin-bottom:8px; }
-  .legend-dot { width:10px; height:10px; display:inline-block; border-radius:50%; margin-right:6px; background:var(--gold); }
-  .legend-dot.green { background:var(--success); }
-  .legend-dot.red { background:var(--danger); }
-  .summary-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.74); z-index:1000; align-items:center; justify-content:center; padding:20px; }
-  .summary-modal.open { display:flex; }
-  .modal-box { width:min(760px,96vw); max-height:86vh; overflow:auto; background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:22px; box-shadow:0 30px 80px rgba(0,0,0,.35); }
-  .modal-head { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:16px; }
-  .mini-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin:12px 0; }
-  .mini-card { background:var(--bg-card2); border:1px solid var(--border); border-radius:12px; padding:12px; }
-  .mini-card b { display:block; font-size:18px; color:white; margin-top:4px; }
-  @media (max-width:980px) { .admin-layout { flex-direction:column; } .sidebar { width:auto; min-width:0; height:auto; position:static; } .grid-2 { grid-template-columns:1fr; } .content { padding:18px; } }
-  @media (max-width:760px) { .inline-form { flex-wrap:wrap; justify-content:flex-start; } td.actions, td.actions-cell { white-space:normal; min-width:210px; } .action-buttons { flex-wrap:wrap; justify-content:flex-end; } }
-  @keyframes adminFadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes goldPulse { 0%,100% { box-shadow:0 0 0 0 rgba(240,192,64,.26); } 50% { box-shadow:0 0 0 8px rgba(240,192,64,0), 0 12px 24px rgba(240,192,64,.16); } }
-  @media (prefers-reduced-motion: reduce) { .btn-gold { animation:none; } .panel, .stat-card { animation:none; } }
-  .stat-card { animation:adminFadeUp .3s ease both; transition:transform .15s ease, border-color .15s ease; }
-  .stat-card:hover { transform:translateY(-2px); border-color:rgba(240,192,64,.26); }
+  :root { --bg:#1a0505; --bg-card:#2a0a0a; --bg-card2:#3d1212; --sidebar:#4a1010; --sidebar-active:#2a0606; --accent:#c0392b; --gold:#f0c040; --text:#f5e6e6; --text-muted:#c4a0a0; --border:rgba(255,255,255,.12); --success:#2ecc71; --danger:#e74c3c; --warning:#f39c12; --info:#3498db; --radius:12px; --radius-sm:8px; }
+  * { box-sizing:border-box; } body { margin:0; font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; } a { color:inherit; }
+  .admin-layout { display:flex; min-height:100vh; } .sidebar { width:260px; min-width:260px; background:var(--sidebar); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
+  .sidebar-logo { display:flex; align-items:center; gap:10px; padding:20px; border-bottom:1px solid var(--border); } .logo-icon { width:40px; height:40px; background:var(--gold); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; } .logo-text { font-family:'Playfair Display',serif; font-size:18px; color:white; } .logo-badge { margin-left:auto; background:var(--accent); font-size:10px; font-weight:800; padding:3px 7px; border-radius:20px; }
+  .sidebar-section { padding:12px 14px 4px; font-size:10px; font-weight:800; letter-spacing:1.2px; color:var(--text-muted); text-transform:uppercase; } .sidebar-nav { flex:1; padding:8px 12px; display:flex; flex-direction:column; gap:4px; } .nav-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); color:var(--text-muted); font-size:13px; font-weight:700; text-decoration:none; transition:.15s; } .nav-item:hover { background:rgba(255,255,255,.08); color:var(--text); } .nav-item.active { background:var(--sidebar-active); color:white; border-left:3px solid var(--gold); } .sidebar-bottom { padding:12px; border-top:1px solid var(--border); }
+  .main { flex:1; min-width:0; } .topbar { background:#2a0808; padding:12px 24px; display:flex; align-items:center; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; } .topbar-title { font-family:'Playfair Display',serif; font-size:16px; color:var(--gold); } .topbar-spacer { flex:1; } .user-chip { display:flex; align-items:center; gap:8px; color:var(--text-muted); font-weight:800; font-size:13px; } .user-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#c0392b,#e74c3c); display:flex; align-items:center; justify-content:center; font-weight:900; color:white; border:2px solid var(--gold); }
+  .content { padding:24px 28px; } .page-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:22px; } .page-title { margin:0; font-family:'Playfair Display',serif; font-size:30px; color:white; } .page-subtitle { margin:5px 0 0; font-size:13px; color:var(--text-muted); max-width:820px; line-height:1.5; }
+  .stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:22px; } .stat-card { background:var(--bg-card2); border-radius:var(--radius); padding:16px 18px; border:1px solid var(--border); } .stat-label { font-size:11px; color:var(--text-muted); font-weight:800; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; } .stat-value { font-size:25px; font-weight:900; color:white; }
+  .grid-2 { display:grid; grid-template-columns:minmax(320px,1.1fr) minmax(280px,.9fr); gap:16px; align-items:start; } .panel { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:18px; animation:adminFadeUp .34s ease both; transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease; } .panel:hover { border-color:rgba(240,192,64,.22); box-shadow:0 16px 32px rgba(0,0,0,.18); } .panel-pad { padding:18px; } .panel-title { margin:0 0 12px; font-size:16px; color:white; font-weight:900; } .muted { color:var(--text-muted); font-size:12px; line-height:1.45; }
+  .toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 16px; border-bottom:1px solid var(--border); background:var(--bg-card2); } .toolbar .spacer { flex:1; }
+  .input-sm, textarea.input-sm { background:rgba(255,255,255,.08); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 12px; color:var(--text); font-size:12px; font-family:inherit; } .input-sm:focus { outline:none; border-color:rgba(255,255,255,.3); } .input-sm::placeholder { color:var(--text-muted); } select.input-sm option { background:#2a0a0a; }
+  .btn { padding:8px 14px; border-radius:var(--radius-sm); border:1px solid var(--border); background:rgba(255,255,255,.10); color:var(--text); font-family:inherit; font-size:12px; font-weight:800; cursor:pointer; transition:background .15s ease, transform .15s ease, box-shadow .15s ease; display:inline-flex; align-items:center; justify-content:center; gap:6px; text-decoration:none; line-height:1.1; white-space:nowrap; } .btn:hover { background:rgba(255,255,255,.18); transform:translateY(-1px); box-shadow:0 8px 16px rgba(0,0,0,.18); } .btn-primary { background:var(--accent); border-color:var(--accent); color:white; } .btn-gold { background:var(--gold); border-color:var(--gold); color:#3b1212; animation:goldPulse 2.4s ease-in-out infinite; } .btn-danger { background:rgba(231,76,60,.18); border-color:rgba(231,76,60,.35); color:#ffadad; } .btn-success { background:rgba(46,204,113,.18); border-color:rgba(46,204,113,.35); color:#9ff0bd; } .btn-sm { padding:6px 10px; font-size:11px; min-height:30px; }
+  .table-scroll { width:100%; overflow-x:auto; } table { width:100%; border-collapse:collapse; font-size:13px; } th { padding:12px 14px; text-align:left; color:var(--text-muted); font-weight:900; font-size:11px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--border); white-space:nowrap; } td { padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.06); vertical-align:middle; } tr:hover td { background:rgba(255,255,255,.03); } table th:last-child, table td:last-child { text-align:right; } td.actions, td.actions-cell { text-align:right; white-space:nowrap; min-width:280px; width:1%; vertical-align:top; }
+  .badge { display:inline-flex; align-items:center; padding:4px 9px; border-radius:20px; font-size:11px; font-weight:900; letter-spacing:.2px; white-space:nowrap; } .badge-success { background:rgba(46,204,113,.18); color:#2ecc71; border:1px solid rgba(46,204,113,.3); } .badge-danger { background:rgba(231,76,60,.18); color:#e74c3c; border:1px solid rgba(231,76,60,.3); } .badge-warning { background:rgba(243,156,18,.18); color:#f39c12; border:1px solid rgba(243,156,18,.3); } .badge-info { background:rgba(52,152,219,.18); color:#3498db; border:1px solid rgba(52,152,219,.3); } .badge-muted { background:rgba(255,255,255,.08); color:#aaa; border:1px solid rgba(255,255,255,.1); }
+  .action-buttons { display:inline-flex; justify-content:flex-end; align-items:center; gap:6px; flex-wrap:wrap; min-height:32px; vertical-align:top; } .inline-form { display:inline-flex; gap:6px; align-items:center; justify-content:flex-end; flex-wrap:wrap; width:auto; min-height:34px; vertical-align:top; } .inline-form .input-sm { width:170px; max-width:170px; height:32px; }
+  .alert { padding:12px 14px; border-radius:var(--radius); margin-bottom:14px; border:1px solid var(--border); background:var(--bg-card2); } .alert-success { color:#9ff0bd; } .alert-error { color:#ffadad; }
+  .pagination-wrap { padding:12px 16px; background:var(--bg-card2); border-top:1px solid var(--border); } .custom-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; } .pagination-links, .pagination-buttons { display:flex; gap:6px; flex-wrap:wrap; } .page-btn { padding:7px 10px; border:1px solid var(--border); border-radius:8px; text-decoration:none; color:var(--text); background:rgba(255,255,255,.08); font-size:12px; } .page-btn.active { background:var(--gold); color:#3b1212; border-color:var(--gold); } .page-btn.disabled { color:var(--text-muted); opacity:.6; }
+  .mini-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:12px 0; } .mini-card { background:rgba(255,255,255,.06); border:1px solid var(--border); border-radius:10px; padding:12px; } .mini-card span { color:var(--text-muted); font-size:11px; display:block; margin-bottom:4px; } .mini-card b { font-size:18px; color:white; }
+  .crud-details { display:inline-block; position:relative; vertical-align:top; } .crud-details > summary { list-style:none; } .crud-details > summary::-webkit-details-marker { display:none; } .crud-details[open] > summary { background:rgba(255,255,255,.2); } .edit-popover { position:absolute; right:0; z-index:25; margin-top:8px; width:min(760px,92vw); background:#220707; border:1px solid var(--border); border-radius:14px; padding:14px; box-shadow:0 30px 80px rgba(0,0,0,.5); text-align:left; white-space:normal; } .edit-popover h4 { margin:0 0 10px; color:white; } .admin-form-grid { display:grid; grid-template-columns:repeat(2,minmax(150px,1fr)); gap:10px; } .admin-form-grid .full { grid-column:1 / -1; } .field-label { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); font-weight:900; margin-bottom:4px; } .form-actions { grid-column:1 / -1; display:flex; justify-content:flex-end; gap:8px; border-top:1px solid var(--border); padding-top:10px; }
+  .summary-modal { position:fixed; inset:0; background:rgba(0,0,0,.70); z-index:999; display:none; align-items:center; justify-content:center; padding:18px; } .summary-modal.open { display:flex; } .modal-box { width:min(960px,96vw); max-height:90vh; overflow:auto; background:var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:18px; box-shadow:0 30px 80px rgba(0,0,0,.45); } .modal-head { display:flex; justify-content:space-between; align-items:center; gap:12px; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:12px; }
+  .chart-legend { display:flex; gap:14px; flex-wrap:wrap; color:var(--text-muted); font-size:12px; margin-bottom:12px; } .legend-dot { width:10px;height:10px;border-radius:50%;background:var(--gold);display:inline-block;margin-right:6px; } .legend-dot.green{background:var(--success);} .legend-dot.red{background:var(--danger);} .timeline-line-chart { width:100%; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:14px; padding:10px; } .line-chart-svg { width:100%; height:300px; } .chart-grid { stroke:rgba(255,255,255,.1); stroke-width:1; } .chart-axis { stroke:rgba(255,255,255,.25); stroke-width:1.5; } .chart-line { fill:none; stroke-width:4; stroke-linejoin:round; stroke-linecap:round; } .chart-line.apostado,.chart-point.apostado { stroke:var(--gold); fill:var(--gold); } .chart-line.ganado,.chart-point.ganado { stroke:var(--success); fill:var(--success); } .chart-line.perdido,.chart-point.perdido { stroke:var(--danger); fill:var(--danger); } .chart-label,.chart-value-label { fill:var(--text-muted); font-size:11px; }
+  @keyframes adminFadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } } @keyframes goldPulse { 0%,100% { box-shadow:0 0 0 0 rgba(240,192,64,.22); } 50% { box-shadow:0 0 0 8px rgba(240,192,64,0); } }
+  @media (max-width:900px) { .admin-layout{flex-direction:column;} .sidebar{width:100%;min-width:0;height:auto;position:relative;} .grid-2{grid-template-columns:1fr;} .content{padding:18px;} .admin-form-grid{grid-template-columns:1fr;} .edit-popover{position:fixed;left:12px;right:12px;top:80px;width:auto;max-height:80vh;overflow:auto;} }
 </style>
 </head>
 <body>
 <div class="admin-layout">
   <aside class="sidebar">
-    <div class="sidebar-logo"><div class="logo-icon">🎰</div><span class="logo-text">Bookie 2.0</span><span class="logo-badge">ADMIN</span></div>
+    <div class="sidebar-logo"><div class="logo-icon">♛</div><div><div class="logo-text">Bookie 2.0</div><div class="muted">Administración</div></div><span class="logo-badge">ADMIN</span></div>
+    <div class="sidebar-section">Panel</div>
     <nav class="sidebar-nav">
-      <div class="sidebar-section">Panel</div>
       <a class="nav-item {{ $active('resumen') }}" href="{{ $sectionUrl('resumen') }}">📊 Resumen</a>
-      <div class="sidebar-section">Gestión</div>
       <a class="nav-item {{ $active('usuarios') }}" href="{{ $sectionUrl('usuarios') }}">👥 Usuarios</a>
-      <a class="nav-item {{ $active('apuestas') }}" href="{{ $sectionUrl('apuestas') }}">📋 Apuestas</a>
+      <a class="nav-item {{ $active('apuestas') }}" href="{{ $sectionUrl('apuestas') }}">🎲 Apuestas</a>
       <a class="nav-item {{ $active('predicciones') }}" href="{{ $sectionUrl('predicciones') }}">🔮 Predicciones</a>
       <a class="nav-item {{ $active('juegos') }}" href="{{ $sectionUrl('juegos') }}">🎮 Juegos</a>
       <a class="nav-item {{ $active('billeteras') }}" href="{{ $sectionUrl('billeteras') }}">💳 Billeteras</a>
       <a class="nav-item {{ $active('notificaciones') }}" href="{{ $sectionUrl('notificaciones') }}">🔔 Notificaciones</a>
       <a class="nav-item {{ $active('chats') }}" href="{{ $sectionUrl('chats') }}">💬 Chats</a>
+      <a class="nav-item {{ $active('mensajes') }}" href="{{ $sectionUrl('mensajes') }}">✉️ Mensajes</a>
       <a class="nav-item {{ $active('amigos') }}" href="{{ $sectionUrl('amigos') }}">🤝 Amigos</a>
-<a class="nav-item {{ $active('rankings') }}" href="{{ $sectionUrl('rankings') }}">🏆 Rankings</a>
+      <a class="nav-item {{ $active('rankings') }}" href="{{ $sectionUrl('rankings') }}">🏆 Rankings</a>
+      <a class="nav-item {{ $active('settings') }}" href="{{ $sectionUrl('settings') }}">⚙️ Configuración</a>
+      <a class="nav-item {{ $active('parametros') }}" href="{{ $sectionUrl('parametros') }}">📐 Parámetros</a>
     </nav>
-    <div class="sidebar-bottom">
-      <a class="nav-item" href="{{ route('dashboard') }}">↩ Volver al dashboard</a>
-      <form method="POST" action="{{ route('logout') }}">@csrf<button class="nav-item" style="border:0;background:transparent;width:100%;cursor:pointer;" type="submit">🚪 Cerrar sesión</button></form>
-    </div>
+    <div class="sidebar-bottom"><a class="nav-item" href="{{ route('dashboard') }}">↩ Volver al dashboard</a><form method="POST" action="{{ route('logout') }}">@csrf<button class="nav-item" style="border:0;background:transparent;width:100%;cursor:pointer;" type="submit">🚪 Cerrar sesión</button></form></div>
   </aside>
 
   <main class="main">
-    <div class="topbar">
-      <span class="topbar-title">Panel de Administración</span>
-      <div class="topbar-spacer"></div>
-      <div class="user-chip"><div class="user-avatar">{{ strtoupper(substr(auth()->user()->name, 0, 2)) }}</div><span>{{ auth()->user()->name }}</span></div>
-    </div>
-
+    <div class="topbar"><span class="topbar-title">Panel de Administración</span><div class="topbar-spacer"></div><div class="user-chip"><div class="user-avatar">{{ strtoupper(substr(auth()->user()->name, 0, 2)) }}</div><span>{{ auth()->user()->name }}</span></div></div>
     <div class="content">
       @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
       @if (session('error'))<div class="alert alert-error">{{ session('error') }}</div>@endif
+      @if ($errors->any())<div class="alert alert-error"><strong>Revisa el formulario:</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">{{ ucfirst($section) }}</h1>
-          <p class="page-subtitle">Control de usuarios, apuestas, juegos, predicciones, billeteras y actividad general de la plataforma.</p>
-        </div>
-      </div>
+      <div class="page-header"><div><h1 class="page-title">{{ ucfirst($section) }}</h1><p class="page-subtitle">Panel de consulta, edición y análisis cruzado de usuarios, juegos, apuestas, saldos, conversaciones y configuración.</p></div></div>
 
       <section class="stats-row">
         <article class="stat-card"><div class="stat-label">Usuarios</div><div class="stat-value">{{ $stats['usuarios'] }}</div></article>
@@ -199,623 +92,102 @@
 
       @if ($section === 'resumen')
         <div class="grid-2">
-          <section class="panel">
-            <div class="panel-pad">
-              <h2 class="panel-title">Usuarios con más actividad</h2>
-              <p class="muted">Pulsa “Resumen” para ver apuestas por juego, dinero apostado, ganado y perdido.</p>
-            </div>
-            <div class="table-scroll">
-              <table>
-                <thead><tr><th>Usuario</th><th>Apuestas</th><th>Total apostado</th><th>Saldo</th><th>Acciones</th></tr></thead>
-                <tbody>
-                  @forelse ($topUsers as $usuario)
-                    <tr>
-                      <td><strong>{{ $usuario->name }}</strong><div class="muted">{{ $usuario->email }}</div></td>
-                      <td>{{ $usuario->apuestas_count }}</td>
-                      <td>{{ $money($usuario->total_apostado ?? 0) }}</td>
-                      <td>{{ $money(optional($usuario->billetera)->saldoDisponible ?? 0) }}</td>
-                      <td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showUserSummary({{ $usuario->id }})">Resumen</button><a class="btn btn-sm" href="{{ $sectionUrl('apuestas', ['user_id' => $usuario->id]) }}">Apuestas</a></div></td>
-                    </tr>
-                  @empty
-                    <tr><td colspan="5" class="muted">No hay usuarios.</td></tr>
-                  @endforelse
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section class="panel">
-            <div class="panel-pad">
-              <h2 class="panel-title">Balance general</h2>
-              <div class="mini-grid">
-                <div class="mini-card"><span class="muted">Ganado neto usuarios</span><b>{{ $money($stats['total_ganado_neto']) }}</b></div>
-                <div class="mini-card"><span class="muted">Perdido usuarios</span><b>{{ $money($stats['total_perdido']) }}</b></div>
-                <div class="mini-card"><span class="muted">Balance global casa</span><b>{{ $money($stats['balance_casa']) }}</b></div>
-              </div>
-              <div class="actions">
-                <a class="btn btn-gold" href="{{ $sectionUrl('predicciones', ['pred_estado' => 'pendiente']) }}">Revisar predicciones pendientes</a>
-                <a class="btn" href="{{ $sectionUrl('apuestas') }}">Ver todas las apuestas</a>
-              </div>
-            </div>
-          </section>
+          <section class="panel"><div class="panel-pad"><h2 class="panel-title">Usuarios con más actividad</h2><p class="muted">Resumen individual, apuestas del usuario y relación con juegos.</p></div><div class="table-scroll"><table><thead><tr><th>Usuario</th><th>Apuestas</th><th>Total apostado</th><th>Saldo</th><th>Acciones</th></tr></thead><tbody>@forelse ($topUsers as $usuario)<tr><td><strong>{{ $usuario->name }}</strong><div class="muted">{{ $usuario->email }}</div></td><td>{{ $usuario->apuestas_count }}</td><td>{{ $money($usuario->total_apostado ?? 0) }}</td><td>{{ $money(optional($usuario->billetera)->saldoDisponible ?? 0) }}</td><td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showUserSummary({{ $usuario->id }})">Resumen</button><a class="btn btn-sm" href="{{ $sectionUrl('apuestas', ['user_id' => $usuario->id]) }}">Apuestas</a></div></td></tr>@empty<tr><td colspan="5" class="muted">No hay usuarios.</td></tr>@endforelse</tbody></table></div></section>
+          <section class="panel"><div class="panel-pad"><h2 class="panel-title">Balance general</h2><div class="mini-grid"><div class="mini-card"><span>Ganado por usuarios</span><b>{{ $money($stats['total_ganado_neto']) }}</b></div><div class="mini-card"><span>Perdido por usuarios</span><b>{{ $money($stats['total_perdido']) }}</b></div><div class="mini-card"><span>Balance global casa</span><b>{{ $money($stats['balance_casa']) }}</b></div></div><div class="action-buttons"><a class="btn btn-gold" href="{{ $sectionUrl('predicciones', ['pred_estado' => 'pendiente']) }}">Predicciones pendientes</a><a class="btn" href="{{ $sectionUrl('apuestas') }}">Todas las apuestas</a></div></div></section>
         </div>
-
-        <section class="panel">
-          <div class="panel-pad">
-            <h2 class="panel-title">Evolución económica de los últimos 14 días</h2>
-            <p class="muted">Evolución temporal de dinero apostado, ganado por usuarios y perdido por usuarios.</p>
-            @php
-              $timeline = collect($adminTimeline ?? []);
-              $chartWidth = 1000;
-              $chartHeight = 280;
-              $leftPad = 58;
-              $rightPad = 24;
-              $topPad = 24;
-              $bottomPad = 48;
-              $plotWidth = $chartWidth - $leftPad - $rightPad;
-              $plotHeight = $chartHeight - $topPad - $bottomPad;
-              $maxTimeline = max(1, $timeline->max(fn ($row) => max(
-                  (float) $row['apostado'],
-                  (float) $row['ganado_usuarios'],
-                  (float) $row['perdido_usuarios']
-              )));
-              $pointLine = function (string $key) use ($timeline, $maxTimeline, $leftPad, $topPad, $plotWidth, $plotHeight) {
-                  $count = max(1, $timeline->count() - 1);
-
-                  return $timeline->values()->map(function ($row, $index) use ($key, $maxTimeline, $leftPad, $topPad, $plotWidth, $plotHeight, $count) {
-                      $x = $leftPad + (($plotWidth / $count) * $index);
-                      $y = $topPad + $plotHeight - (((float) $row[$key] / $maxTimeline) * $plotHeight);
-
-                      return round($x, 2) . ',' . round($y, 2);
-                  })->implode(' ');
-              };
-              $chartSeries = [
-                  'apostado' => ['label' => 'Total apostado', 'class' => 'apostado', 'points' => $pointLine('apostado')],
-                  'ganado_usuarios' => ['label' => 'Ganado por usuarios', 'class' => 'ganado', 'points' => $pointLine('ganado_usuarios')],
-                  'perdido_usuarios' => ['label' => 'Perdido por usuarios', 'class' => 'perdido', 'points' => $pointLine('perdido_usuarios')],
-              ];
-            @endphp
-            <div class="chart-legend">
-              <span><i class="legend-dot"></i>Total apostado</span>
-              <span><i class="legend-dot green"></i>Ganado por usuarios</span>
-              <span><i class="legend-dot red"></i>Perdido por usuarios</span>
-            </div>
-            <div class="admin-timeline">
-              <div class="timeline-line-chart" aria-label="Gráfico temporal del panel de administración">
-                <svg class="line-chart-svg" viewBox="0 0 {{ $chartWidth }} {{ $chartHeight }}" preserveAspectRatio="none" role="img">
-                  <title>Evolución de dinero apostado, ganado y perdido por usuarios</title>
-                  @foreach ([0, .25, .5, .75, 1] as $step)
-                    @php
-                      $y = $topPad + $plotHeight - ($plotHeight * $step);
-                      $value = $maxTimeline * $step;
-                    @endphp
-                    <line class="chart-grid" x1="{{ $leftPad }}" y1="{{ $y }}" x2="{{ $chartWidth - $rightPad }}" y2="{{ $y }}" />
-                    <text class="chart-value-label" x="8" y="{{ $y + 4 }}">{{ number_format($value, 0, ',', '.') }}</text>
-                  @endforeach
-
-                  <line class="chart-axis" x1="{{ $leftPad }}" y1="{{ $topPad }}" x2="{{ $leftPad }}" y2="{{ $topPad + $plotHeight }}" />
-                  <line class="chart-axis" x1="{{ $leftPad }}" y1="{{ $topPad + $plotHeight }}" x2="{{ $chartWidth - $rightPad }}" y2="{{ $topPad + $plotHeight }}" />
-
-                  @foreach ($chartSeries as $series)
-                    <polyline class="chart-line {{ $series['class'] }}" points="{{ $series['points'] }}" />
-                  @endforeach
-
-                  @foreach ($timeline->values() as $index => $row)
-                    @php
-                      $count = max(1, $timeline->count() - 1);
-                      $x = $leftPad + (($plotWidth / $count) * $index);
-                    @endphp
-                    @foreach ($chartSeries as $key => $series)
-                      @php
-                        $y = $topPad + $plotHeight - (((float) $row[$key] / $maxTimeline) * $plotHeight);
-                      @endphp
-                      <circle class="chart-point {{ $series['class'] }}" cx="{{ $x }}" cy="{{ $y }}" r="4">
-                        <title>{{ $row['label'] }} · {{ $series['label'] }}: {{ $money($row[$key]) }}</title>
-                      </circle>
-                    @endforeach
-                    @if ($index === 0 || $index === $timeline->count() - 1 || $index % 3 === 0)
-                      <text class="chart-label" x="{{ $x }}" y="{{ $chartHeight - 16 }}" text-anchor="middle">{{ $row['label'] }}</text>
-                    @endif
-                  @endforeach
-                </svg>
-              </div>
-            </div>
-          </div>
-        </section>
+        <section class="panel"><div class="panel-pad"><h2 class="panel-title">Evolución económica de los últimos 14 días</h2><p class="muted">Dinero apostado, ganado por usuarios y perdido por usuarios.</p>
+          @php
+            $timeline = collect($adminTimeline ?? []); $chartWidth = 1000; $chartHeight = 280; $leftPad = 58; $rightPad = 24; $topPad = 24; $bottomPad = 48; $plotWidth = $chartWidth - $leftPad - $rightPad; $plotHeight = $chartHeight - $topPad - $bottomPad;
+            $maxTimeline = max(1, $timeline->max(fn ($row) => max((float) $row['apostado'], (float) $row['ganado_usuarios'], (float) $row['perdido_usuarios'])));
+            $pointLine = function (string $key) use ($timeline, $maxTimeline, $leftPad, $topPad, $plotWidth, $plotHeight) { $count = max(1, $timeline->count() - 1); return $timeline->values()->map(function ($row, $index) use ($key, $maxTimeline, $leftPad, $topPad, $plotWidth, $plotHeight, $count) { $x = $leftPad + (($plotWidth / $count) * $index); $y = $topPad + $plotHeight - (((float) $row[$key] / $maxTimeline) * $plotHeight); return round($x, 2) . ',' . round($y, 2); })->implode(' '); };
+            $chartSeries = ['apostado' => ['label' => 'Total apostado', 'class' => 'apostado', 'points' => $pointLine('apostado')], 'ganado_usuarios' => ['label' => 'Ganado por usuarios', 'class' => 'ganado', 'points' => $pointLine('ganado_usuarios')], 'perdido_usuarios' => ['label' => 'Perdido por usuarios', 'class' => 'perdido', 'points' => $pointLine('perdido_usuarios')]];
+          @endphp
+          <div class="chart-legend"><span><i class="legend-dot"></i>Total apostado</span><span><i class="legend-dot green"></i>Ganado por usuarios</span><span><i class="legend-dot red"></i>Perdido por usuarios</span></div>
+          <div class="timeline-line-chart"><svg class="line-chart-svg" viewBox="0 0 {{ $chartWidth }} {{ $chartHeight }}" preserveAspectRatio="none" role="img"><title>Evolución económica</title>@foreach ([0, .25, .5, .75, 1] as $step)@php $y = $topPad + $plotHeight - ($plotHeight * $step); $value = $maxTimeline * $step; @endphp<line class="chart-grid" x1="{{ $leftPad }}" y1="{{ $y }}" x2="{{ $chartWidth - $rightPad }}" y2="{{ $y }}" /><text class="chart-value-label" x="8" y="{{ $y + 4 }}">{{ number_format($value, 0, ',', '.') }}</text>@endforeach<line class="chart-axis" x1="{{ $leftPad }}" y1="{{ $topPad }}" x2="{{ $leftPad }}" y2="{{ $topPad + $plotHeight }}" /><line class="chart-axis" x1="{{ $leftPad }}" y1="{{ $topPad + $plotHeight }}" x2="{{ $chartWidth - $rightPad }}" y2="{{ $topPad + $plotHeight }}" />@foreach ($chartSeries as $series)<polyline class="chart-line {{ $series['class'] }}" points="{{ $series['points'] }}" />@endforeach @foreach ($timeline->values() as $index => $row)@php $count = max(1, $timeline->count() - 1); $x = $leftPad + (($plotWidth / $count) * $index); @endphp @foreach ($chartSeries as $key => $series)@php $y = $topPad + $plotHeight - (((float) $row[$key] / $maxTimeline) * $plotHeight); @endphp<circle class="chart-point {{ $series['class'] }}" cx="{{ $x }}" cy="{{ $y }}" r="4"><title>{{ $row['label'] }} · {{ $series['label'] }}: {{ $money($row[$key]) }}</title></circle>@endforeach @if ($index === 0 || $index === $timeline->count() - 1 || $index % 3 === 0)<text class="chart-label" x="{{ $x }}" y="{{ $chartHeight - 16 }}" text-anchor="middle">{{ $row['label'] }}</text>@endif @endforeach</svg></div></div></section>
+        <section class="panel"><div class="panel-pad"><h2 class="panel-title">Matriz usuario × juego</h2><p class="muted">Cruce directo para saber quién juega a qué, cuánto apuesta cada usuario en cada juego y qué balance produce.</p></div><div class="table-scroll"><table><thead><tr><th>Usuario</th><th>Juego</th><th>Apuestas</th><th>Apostado</th><th>Ganado usuarios</th><th>Perdido usuarios</th><th>Balance juego</th><th>Acciones</th></tr></thead><tbody>@forelse($userGameMatrix as $row)<tr><td><strong>{{ $row->user_name }}</strong><div class="muted">{{ $row->user_email }}</div></td><td><strong>{{ $row->juego_nombre }}</strong></td><td>{{ $row->total_apuestas }}</td><td>{{ $money($row->total_apostado) }}</td><td>{{ $money($row->ganado_usuarios) }}</td><td>{{ $money($row->perdido_usuarios) }}</td><td>{{ $money($row->perdido_usuarios - $row->ganado_usuarios) }}</td><td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showUserSummary({{ $row->user_id }})">Usuario</button><button class="btn btn-sm" onclick="showGameSummary({{ $row->juego_id }})">Juego</button><a class="btn btn-sm" href="{{ $sectionUrl('apuestas', ['user_id' => $row->user_id, 'juego_id' => $row->juego_id]) }}">Filtrar</a></div></td></tr>@empty<tr><td colspan="8" class="muted">Aún no hay cruces de usuario y juego.</td></tr>@endforelse</tbody></table></div></section>
       @endif
 
       @if ($section === 'usuarios')
         <section class="panel">
-          <div class="panel-pad"><h2 class="panel-title">Usuarios</h2><p class="muted">Desde aquí puedes ver resumen por usuario o filtrar sus apuestas.</p></div>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>ID</th><th>Usuario</th><th>Rol</th><th>Apuestas</th><th>Total apostado</th><th>Saldo</th><th>Estado</th><th>Acciones</th></tr></thead>
-              <tbody>
-                @foreach ($usuarios as $usuario)
-                  <tr>
-                    <td>#{{ $usuario->id }}</td>
-                    <td><strong>{{ $usuario->name }}</strong><div class="muted">{{ $usuario->email }}</div></td>
-                    <td><span class="badge badge-info">{{ strtoupper($usuario->role) }}</span></td>
-                    <td>{{ $usuario->apuestas_count }}</td>
-                    <td>{{ $money($usuario->total_apostado ?? 0) }}</td>
-                    <td>{{ $money(optional($usuario->billetera)->saldoDisponible ?? 0) }}</td>
-                    <td><span class="badge badge-warning">{{ $usuario->apuestas_pendientes_count }} activas</span></td>
-                    <td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showUserSummary({{ $usuario->id }})">Resumen</button><a class="btn btn-sm" href="{{ $sectionUrl('apuestas', ['user_id' => $usuario->id]) }}">Apuestas</a><a class="btn btn-sm" href="{{ $sectionUrl('predicciones', ['pred_user_id' => $usuario->id]) }}">Predicciones</a></div></td>
-                  </tr>
-                @endforeach
-              </tbody>
-            </table>
-          </div>
-          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $usuarios])</div>
+          <form class="toolbar" method="GET" action="{{ route('admin.panel') }}"><input type="hidden" name="section" value="usuarios"><input class="input-sm" name="user_search" value="{{ request('user_search') }}" placeholder="Buscar nombre, email o rol" style="width:240px;"><select class="input-sm" name="user_role"><option value="">Rol</option>@foreach(['admin','operator','player'] as $role)<option value="{{ $role }}" @selected(request('user_role') === $role)>{{ ucfirst($role) }}</option>@endforeach</select><input class="input-sm" name="user_vip" value="{{ request('user_vip') }}" placeholder="Nivel VIP" style="width:110px"><button class="btn btn-primary" type="submit">Filtrar</button><a class="btn" href="{{ $sectionUrl('usuarios') }}">Limpiar</a><span class="spacer"></span><details class="crud-details"><summary class="btn btn-gold">+ Usuario</summary><div class="edit-popover"><h4>Nuevo usuario</h4><form method="POST" action="{{ route('admin.usuarios.store') }}" class="admin-form-grid">@csrf<label><span class="field-label">Nombre</span><input class="input-sm" name="name" required></label><label><span class="field-label">Email</span><input class="input-sm" type="email" name="email" required></label><label><span class="field-label">Contraseña</span><input class="input-sm" type="password" name="password" required></label><label><span class="field-label">Rol</span><select class="input-sm" name="role"><option value="player">Player</option><option value="operator">Operator</option><option value="admin">Admin</option></select></label><label><span class="field-label">Puntos</span><input class="input-sm" type="number" name="puntos_fidelidad" value="0" min="0"></label><label><span class="field-label">Nivel VIP</span><input class="input-sm" type="number" name="nivel_vip" value="0" min="0"></label><div class="form-actions"><button class="btn btn-primary">Crear</button></div></form></div></details></form>
+          <div class="table-scroll"><table><thead><tr><th>ID</th><th>Usuario</th><th>Rol</th><th>Puntos/VIP</th><th>Apuestas</th><th>Total apostado</th><th>Saldo</th><th>Registro</th><th>Acciones</th></tr></thead><tbody>@forelse ($usuarios as $usuario)<tr><td>#{{ $usuario->id }}</td><td><strong>{{ $usuario->name }}</strong><div class="muted">{{ $usuario->email }}</div></td><td><span class="badge badge-info">{{ strtoupper($usuario->role) }}</span></td><td>{{ $usuario->puntos_fidelidad }} pts<div class="muted">VIP {{ $usuario->nivel_vip }}</div></td><td>{{ $usuario->apuestas_count }}<div class="muted">{{ $usuario->apuestas_ganadas_count }}G · {{ $usuario->apuestas_perdidas_count }}P · {{ $usuario->apuestas_pendientes_count }} activas</div></td><td>{{ $money($usuario->total_apostado ?? 0) }}</td><td>{{ $money(optional($usuario->billetera)->saldoDisponible ?? 0) }}</td><td>{{ $usuario->created_at?->format('d/m/Y') }}</td><td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showUserSummary({{ $usuario->id }})">Resumen</button><a class="btn btn-sm" href="{{ $sectionUrl('apuestas', ['user_id' => $usuario->id]) }}">Apuestas</a><details class="crud-details"><summary class="btn btn-sm">Editar</summary><div class="edit-popover"><h4>Editar usuario #{{ $usuario->id }}</h4><form method="POST" action="{{ route('admin.usuarios.update', $usuario) }}" class="admin-form-grid">@csrf @method('PUT')<label><span class="field-label">Nombre</span><input class="input-sm" name="name" value="{{ $usuario->name }}" required></label><label><span class="field-label">Email</span><input class="input-sm" type="email" name="email" value="{{ $usuario->email }}" required></label><label><span class="field-label">Rol</span><select class="input-sm" name="role">@foreach(['admin','operator','player'] as $role)<option value="{{ $role }}" @selected($usuario->role === $role)>{{ ucfirst($role) }}</option>@endforeach</select></label><label><span class="field-label">Nueva contraseña</span><input class="input-sm" type="password" name="password" placeholder="Solo si cambia"></label><label><span class="field-label">Puntos</span><input class="input-sm" type="number" name="puntos_fidelidad" value="{{ $usuario->puntos_fidelidad }}" min="0"></label><label><span class="field-label">Nivel VIP</span><input class="input-sm" type="number" name="nivel_vip" value="{{ $usuario->nivel_vip }}" min="0"></label><div class="form-actions"><button class="btn btn-primary">Guardar</button></div></form></div></details><form method="POST" action="{{ route('admin.usuarios.destroy', $usuario) }}" onsubmit="return confirm('¿Eliminar usuario {{ addslashes($usuario->name) }}?')">@csrf @method('DELETE')<button class="btn btn-sm btn-danger">Eliminar</button></form></div></td></tr>@empty<tr><td colspan="9" class="muted">No hay usuarios con estos filtros.</td></tr>@endforelse</tbody></table></div><div class="pagination-wrap">@include('partials.pagination', ['paginator' => $usuarios])</div>
         </section>
       @endif
 
       @if ($section === 'apuestas')
-        <section class="panel">
-          <form class="toolbar" method="GET" action="{{ route('admin.panel') }}">
-            <input type="hidden" name="section" value="apuestas">
-            <input class="input-sm" name="search" value="{{ request('search') }}" placeholder="Buscar usuario, juego, detalle..." style="width:240px;">
-            <select class="input-sm" name="estado"><option value="">Estado</option>@foreach(['pendiente','aceptada','rechazada','ganada','perdida'] as $estado)<option value="{{ $estado }}" @selected(request('estado') === $estado)>{{ ucfirst($estado) }}</option>@endforeach</select>
-            <select class="input-sm" name="tipo"><option value="">Tipo</option>@foreach($tipos as $tipo)<option value="{{ $tipo }}" @selected(request('tipo') === $tipo)>{{ ucfirst($tipo) }}</option>@endforeach</select>
-            <select class="input-sm" name="user_id"><option value="">Usuario</option>@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}" @selected((string)request('user_id') === (string)$usuario->id)>{{ $usuario->name }}</option>@endforeach</select>
-            <select class="input-sm" name="juego_id"><option value="">Juego</option>@foreach($juegos as $juego)<option value="{{ $juego->id }}" @selected((string)request('juego_id') === (string)$juego->id)>{{ $juego->nombre }}</option>@endforeach</select>
-            <button class="btn btn-primary" type="submit">Filtrar</button>
-            <a class="btn" href="{{ $sectionUrl('apuestas') }}">Limpiar</a>
-          </form>
-          @include('partials.admin-apuestas-table', ['apuestas' => $apuestas, 'money' => $money, 'statusClass' => $statusClass, 'sectionUrl' => $sectionUrl])
-        </section>
+        <section class="panel"><form class="toolbar" method="GET" action="{{ route('admin.panel') }}"><input type="hidden" name="section" value="apuestas"><input class="input-sm" name="search" value="{{ request('search') }}" placeholder="Buscar usuario, juego, detalle..." style="width:240px;"><select class="input-sm" name="estado"><option value="">Estado</option>@foreach(['pendiente','aceptada','rechazada','ganada','perdida'] as $estado)<option value="{{ $estado }}" @selected(request('estado') === $estado)>{{ ucfirst($estado) }}</option>@endforeach</select><select class="input-sm" name="tipo"><option value="">Tipo</option>@foreach($tipos as $tipo)<option value="{{ $tipo }}" @selected(request('tipo') === $tipo)>{{ ucfirst($tipo) }}</option>@endforeach</select><select class="input-sm" name="user_id"><option value="">Usuario</option>@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}" @selected((string)request('user_id') === (string)$usuario->id)>{{ $usuario->name }}</option>@endforeach</select><select class="input-sm" name="juego_id"><option value="">Juego</option>@foreach($juegos as $juego)<option value="{{ $juego->id }}" @selected((string)request('juego_id') === (string)$juego->id)>{{ $juego->nombre }}</option>@endforeach</select><input class="input-sm" name="monto_min" value="{{ request('monto_min') }}" placeholder="Mín €" style="width:90px"><input class="input-sm" name="monto_max" value="{{ request('monto_max') }}" placeholder="Máx €" style="width:90px"><button class="btn btn-primary" type="submit">Filtrar</button><a class="btn" href="{{ $sectionUrl('apuestas') }}">Limpiar</a><span class="spacer"></span><details class="crud-details"><summary class="btn btn-gold">+ Apuesta</summary><div class="edit-popover"><h4>Nueva apuesta manual</h4><form method="POST" action="{{ route('admin.apuestas.store') }}" class="admin-form-grid">@csrf@include('partials.admin-apuesta-form-fields', ['bet' => null, 'allUsers' => $allUsers, 'juegos' => $juegos])<div class="form-actions"><button class="btn btn-primary">Crear</button></div></form></div></details></form>@include('partials.admin-apuestas-table', ['apuestas' => $apuestas, 'money' => $money, 'statusClass' => $statusClass, 'sectionUrl' => $sectionUrl, 'allUsers' => $allUsers, 'juegos' => $juegos])</section>
       @endif
 
       @if ($section === 'predicciones')
-        <section class="panel">
-          <form class="toolbar" method="GET" action="{{ route('admin.panel') }}">
-            <input type="hidden" name="section" value="predicciones">
-            <select class="input-sm" name="pred_estado"><option value="">Estado</option>@foreach(['pendiente','aceptada','rechazada','ganada','perdida'] as $estado)<option value="{{ $estado }}" @selected(request('pred_estado') === $estado)>{{ ucfirst($estado) }}</option>@endforeach</select>
-            <select class="input-sm" name="pred_user_id"><option value="">Usuario</option>@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}" @selected((string)request('pred_user_id') === (string)$usuario->id)>{{ $usuario->name }}</option>@endforeach</select>
-            <button class="btn btn-primary" type="submit">Filtrar</button>
-            <a class="btn" href="{{ $sectionUrl('predicciones') }}">Limpiar</a>
-          </form>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>ID</th><th>Usuario</th><th>Predicción</th><th>Monto</th><th>Estado</th><th>Resultado</th><th>Admin</th><th>Acciones</th></tr></thead>
-              <tbody>
-                @forelse ($predicciones as $bet)
-                  <tr>
-                    <td>#{{ $bet->id }}</td>
-                    <td><strong>{{ $bet->user->name ?? ('User #' . $bet->user_id) }}</strong><div class="muted">{{ $bet->user->email ?? '' }}</div></td>
-                    <td><strong>{{ $bet->descripcion }}</strong><div class="muted">Selección: {{ $bet->seleccion }}</div><div class="muted">{{ $bet->fecha ? $bet->fecha->format('d/m/Y H:i') : '-' }}</div></td>
-                    <td>{{ $money($bet->monto) }}<div class="muted">Cuota {{ number_format((float)$bet->cuota, 2, ',', '.') }}</div></td>
-                    <td><span class="badge {{ $statusClass($bet->estado) }}">{{ $bet->estadoEtiqueta() }}</span></td>
-                    <td>{{ $bet->resultado ?: '-' }}</td>
-                    <td>{{ $bet->admin->name ?? '-' }}</td>
-                    <td class="actions-cell">
-                      @if ($bet->estado === 'pendiente')
-                        <form class="inline-form" method="POST" action="{{ route('admin.predictions.resolve', $bet) }}">
-                          @csrf
-                          <input class="input-sm" name="resultado" placeholder="Comentario opcional">
-                          <button class="btn btn-success btn-sm" name="action" value="aceptar">Aceptar</button>
-                          <button class="btn btn-danger btn-sm" name="action" value="rechazar">Rechazar</button>
-                        </form>
-                      @elseif ($bet->estado === 'aceptada')
-                        <form class="inline-form" method="POST" action="{{ route('admin.predictions.resolve', $bet) }}">
-                          @csrf
-                          <input class="input-sm" name="resultado" placeholder="Resultado real">
-                          <button class="btn btn-success btn-sm" name="action" value="ganada">Ganada</button>
-                          <button class="btn btn-danger btn-sm" name="action" value="perdida">Perdida</button>
-                        </form>
-                      @else
-                        <span class="muted">Sin acciones</span>
-                      @endif
-                    </td>
-                  </tr>
-                @empty
-                  <tr><td colspan="8" class="muted">No hay predicciones con estos filtros.</td></tr>
-                @endforelse
-              </tbody>
-            </table>
-          </div>
-          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $predicciones])</div>
-        </section>
+        <section class="panel"><form class="toolbar" method="GET" action="{{ route('admin.panel') }}"><input type="hidden" name="section" value="predicciones"><input class="input-sm" name="pred_search" value="{{ request('pred_search') }}" placeholder="Buscar predicción..." style="width:230px"><select class="input-sm" name="pred_estado"><option value="">Estado</option>@foreach(['pendiente','aceptada','rechazada','ganada','perdida'] as $estado)<option value="{{ $estado }}" @selected(request('pred_estado') === $estado)>{{ ucfirst($estado) }}</option>@endforeach</select><select class="input-sm" name="pred_user_id"><option value="">Usuario</option>@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}" @selected((string)request('pred_user_id') === (string)$usuario->id)>{{ $usuario->name }}</option>@endforeach</select><button class="btn btn-primary" type="submit">Filtrar</button><a class="btn" href="{{ $sectionUrl('predicciones') }}">Limpiar</a></form><div class="table-scroll"><table><thead><tr><th>ID</th><th>Usuario</th><th>Predicción</th><th>Monto</th><th>Estado</th><th>Resultado</th><th>Admin</th><th>Acciones</th></tr></thead><tbody>@forelse ($predicciones as $bet)<tr><td>#{{ $bet->id }}</td><td><strong>{{ $bet->user->name ?? ('User #' . $bet->user_id) }}</strong><div class="muted">{{ $bet->user->email ?? '' }}</div></td><td><strong>{{ $bet->descripcion }}</strong><div class="muted">Selección: {{ $bet->seleccion }}</div><div class="muted">{{ $bet->fecha ? $bet->fecha->format('d/m/Y H:i') : '-' }}</div></td><td>{{ $money($bet->monto) }}<div class="muted">Cuota {{ number_format((float)$bet->cuota, 2, ',', '.') }}</div></td><td><span class="badge {{ $statusClass($bet->estado) }}">{{ $bet->estadoEtiqueta() }}</span></td><td>{{ $bet->resultado ?: '-' }}</td><td>{{ $bet->admin->name ?? '-' }}</td><td class="actions-cell"><div class="action-buttons">@if ($bet->estado === 'pendiente')<form class="inline-form" method="POST" action="{{ route('admin.predictions.resolve', $bet) }}">@csrf<input class="input-sm" name="resultado" placeholder="Comentario"><button class="btn btn-success btn-sm" name="action" value="aceptar">Aceptar</button><button class="btn btn-danger btn-sm" name="action" value="rechazar">Rechazar</button></form>@elseif ($bet->estado === 'aceptada')<form class="inline-form" method="POST" action="{{ route('admin.predictions.resolve', $bet) }}">@csrf<input class="input-sm" name="resultado" placeholder="Resultado"><button class="btn btn-success btn-sm" name="action" value="ganada">Ganada</button><button class="btn btn-danger btn-sm" name="action" value="perdida">Perdida</button></form>@else<span class="muted">Resuelta</span>@endif<a class="btn btn-sm" href="{{ $sectionUrl('apuestas', ['user_id' => $bet->user_id, 'juego_id' => $bet->juego_id]) }}">Ver relación</a></div></td></tr>@empty<tr><td colspan="8" class="muted">No hay predicciones con estos filtros.</td></tr>@endforelse</tbody></table></div><div class="pagination-wrap">@include('partials.pagination', ['paginator' => $predicciones])</div></section>
       @endif
 
       @if ($section === 'juegos')
-        <section class="panel">
-          <div class="panel-pad"><h2 class="panel-title">Juegos</h2><p class="muted">La antigua tarjeta de Deportes se ha sustituido por Predicción en la pestaña de Juegos.</p></div>
-          <div class="table-scroll"><table><thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Estado</th><th>Apuestas</th><th>Total apostado</th><th>Acciones</th></tr></thead><tbody>
-            @foreach($juegosAdmin as $juego)
-              <tr><td>#{{ $juego->id }}</td><td><strong>{{ $juego->nombre }}</strong></td><td>{{ $juego->categoria }}</td><td><span class="badge badge-info">{{ $juego->estado }}</span></td><td>{{ $juego->apuestas_count }}</td><td>{{ $money($juego->total_apostado ?? 0) }}</td><td class="actions"><div class="action-buttons"><a class="btn btn-sm" href="{{ $sectionUrl('apuestas', ['juego_id' => $juego->id]) }}">Ver apuestas</a></div></td></tr>
-            @endforeach
-          </tbody></table></div>
-          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $juegosAdmin])</div>
-        </section>
+        <section class="panel"><form class="toolbar" method="GET" action="{{ route('admin.panel') }}"><input type="hidden" name="section" value="juegos"><input class="input-sm" name="game_search" value="{{ request('game_search') }}" placeholder="Buscar juego" style="width:220px"><select class="input-sm" name="game_categoria"><option value="">Categoría</option>@foreach($categorias as $categoria)<option value="{{ $categoria }}" @selected(request('game_categoria') === $categoria)>{{ $categoria }}</option>@endforeach</select><select class="input-sm" name="game_estado"><option value="">Estado</option>@foreach(['abierta','cerrada','activa','inactiva'] as $estado)<option value="{{ $estado }}" @selected(request('game_estado') === $estado)>{{ ucfirst($estado) }}</option>@endforeach</select><button class="btn btn-primary">Filtrar</button><a class="btn" href="{{ $sectionUrl('juegos') }}">Limpiar</a><span class="spacer"></span><details class="crud-details"><summary class="btn btn-gold">+ Juego</summary><div class="edit-popover"><h4>Nuevo juego</h4><form method="POST" action="{{ route('admin.juegos.store') }}" class="admin-form-grid">@csrf<label><span class="field-label">Nombre</span><input class="input-sm" name="nombre" required></label><label><span class="field-label">Categoría</span><input class="input-sm" name="categoria" required></label><label><span class="field-label">Estado</span><input class="input-sm" name="estado" value="abierta" required></label><div class="form-actions"><button class="btn btn-primary">Crear</button></div></form></div></details></form><div class="table-scroll"><table><thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Estado</th><th>Apuestas</th><th>Total apostado</th><th>Acciones</th></tr></thead><tbody>@forelse($juegosAdmin as $juego)<tr><td>#{{ $juego->id }}</td><td><strong>{{ $juego->nombre }}</strong></td><td>{{ $juego->categoria }}</td><td><span class="badge badge-info">{{ $juego->estado }}</span></td><td>{{ $juego->apuestas_count }}</td><td>{{ $money($juego->total_apostado ?? 0) }}</td><td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showGameSummary({{ $juego->id }})">Resumen</button><a class="btn btn-sm" href="{{ $sectionUrl('apuestas', ['juego_id' => $juego->id]) }}">Apuestas</a><details class="crud-details"><summary class="btn btn-sm">Editar</summary><div class="edit-popover"><h4>Editar juego #{{ $juego->id }}</h4><form method="POST" action="{{ route('admin.juegos.update', $juego) }}" class="admin-form-grid">@csrf @method('PUT')<label><span class="field-label">Nombre</span><input class="input-sm" name="nombre" value="{{ $juego->nombre }}" required></label><label><span class="field-label">Categoría</span><input class="input-sm" name="categoria" value="{{ $juego->categoria }}" required></label><label><span class="field-label">Estado</span><input class="input-sm" name="estado" value="{{ $juego->estado }}" required></label><div class="form-actions"><button class="btn btn-primary">Guardar</button></div></form></div></details><form method="POST" action="{{ route('admin.juegos.destroy', $juego) }}" onsubmit="return confirm('¿Eliminar este juego?')">@csrf @method('DELETE')<button class="btn btn-sm btn-danger">Eliminar</button></form></div></td></tr>@empty<tr><td colspan="7" class="muted">No hay juegos con estos filtros.</td></tr>@endforelse</tbody></table></div><div class="pagination-wrap">@include('partials.pagination', ['paginator' => $juegosAdmin])</div></section>
       @endif
 
       @if ($section === 'billeteras')
-        <section class="panel">
-          <div class="panel-pad"><h2 class="panel-title">Billeteras</h2><p class="muted">Saldos actuales de usuarios.</p></div>
-          <div class="table-scroll"><table><thead><tr><th>ID</th><th>Usuario</th><th>Saldo</th><th>Moneda</th><th>Acciones</th></tr></thead><tbody>
-            @foreach($billeteras as $wallet)
-              <tr><td>#{{ $wallet->id }}</td><td><strong>{{ $wallet->user->name ?? ('User #' . $wallet->user_id) }}</strong></td><td>{{ $money($wallet->saldoDisponible) }}</td><td>{{ $wallet->moneda }}</td><td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showUserSummary({{ $wallet->user_id }})">Resumen usuario</button></div></td></tr>
-            @endforeach
-          </tbody></table></div>
-          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $billeteras])</div>
-        </section>
+        <section class="panel"><form class="toolbar" method="GET" action="{{ route('admin.panel') }}"><input type="hidden" name="section" value="billeteras"><input class="input-sm" name="wallet_search" value="{{ request('wallet_search') }}" placeholder="Buscar usuario o moneda"><select class="input-sm" name="wallet_user_id"><option value="">Usuario</option>@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}" @selected((string)request('wallet_user_id') === (string)$usuario->id)>{{ $usuario->name }}</option>@endforeach</select><input class="input-sm" name="wallet_min" value="{{ request('wallet_min') }}" placeholder="Saldo min" style="width:100px"><input class="input-sm" name="wallet_max" value="{{ request('wallet_max') }}" placeholder="Saldo max" style="width:100px"><button class="btn btn-primary">Filtrar</button><a class="btn" href="{{ $sectionUrl('billeteras') }}">Limpiar</a><span class="spacer"></span><details class="crud-details"><summary class="btn btn-gold">+ Billetera</summary><div class="edit-popover"><h4>Nueva billetera</h4><form method="POST" action="{{ route('admin.billeteras.store') }}" class="admin-form-grid">@csrf<label><span class="field-label">Usuario</span><select class="input-sm" name="user_id" required>@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}">{{ $usuario->name }}</option>@endforeach</select></label><label><span class="field-label">Saldo</span><input class="input-sm" type="number" name="saldoDisponible" step="0.01" min="0" value="0" required></label><label><span class="field-label">Moneda</span><input class="input-sm" name="moneda" value="EUR" required></label><div class="form-actions"><button class="btn btn-primary">Crear</button></div></form></div></details></form><div class="table-scroll"><table><thead><tr><th>ID</th><th>Usuario</th><th>Saldo</th><th>Moneda</th><th>Actualizada</th><th>Acciones</th></tr></thead><tbody>@forelse($billeteras as $wallet)<tr><td>#{{ $wallet->id }}</td><td><strong>{{ $wallet->user->name ?? ('User #' . $wallet->user_id) }}</strong><div class="muted">{{ $wallet->user->email ?? '' }}</div></td><td>{{ $money($wallet->saldoDisponible) }}</td><td>{{ $wallet->moneda }}</td><td>{{ $wallet->updated_at?->format('d/m/Y H:i') }}</td><td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showUserSummary({{ $wallet->user_id }})">Usuario</button><details class="crud-details"><summary class="btn btn-sm">Editar</summary><div class="edit-popover"><h4>Editar billetera #{{ $wallet->id }}</h4><form method="POST" action="{{ route('admin.billeteras.update', $wallet) }}" class="admin-form-grid">@csrf @method('PUT')<label><span class="field-label">Usuario</span><select class="input-sm" name="user_id">@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}" @selected((int)$wallet->user_id === (int)$usuario->id)>{{ $usuario->name }}</option>@endforeach</select></label><label><span class="field-label">Saldo</span><input class="input-sm" type="number" name="saldoDisponible" step="0.01" min="0" value="{{ $wallet->saldoDisponible }}"></label><label><span class="field-label">Moneda</span><input class="input-sm" name="moneda" value="{{ $wallet->moneda }}"></label><div class="form-actions"><button class="btn btn-primary">Guardar</button></div></form></div></details><form method="POST" action="{{ route('admin.billeteras.destroy', $wallet) }}" onsubmit="return confirm('¿Eliminar billetera?')">@csrf @method('DELETE')<button class="btn btn-sm btn-danger">Eliminar</button></form></div></td></tr>@empty<tr><td colspan="6" class="muted">No hay billeteras con estos filtros.</td></tr>@endforelse</tbody></table></div><div class="pagination-wrap">@include('partials.pagination', ['paginator' => $billeteras])</div></section>
       @endif
 
       @if ($section === 'notificaciones')
-        <section class="panel">
-          <div class="panel-pad"><h2 class="panel-title">Notificaciones</h2><p class="muted">Mensajes enviados a usuarios por apuestas, predicciones y sistema.</p></div>
-          <div class="table-scroll"><table><thead><tr><th>ID</th><th>Usuario</th><th>Tipo</th><th>Título</th><th>Mensaje</th><th>Leída</th><th>Fecha</th></tr></thead><tbody>
-            @foreach($notificaciones as $notificacion)
-              <tr><td>#{{ $notificacion->id }}</td><td>{{ $notificacion->user->name ?? ('User #' . $notificacion->user_id) }}</td><td>{{ $notificacion->tipo }}</td><td><strong>{{ $notificacion->titulo }}</strong></td><td class="muted">{{ $notificacion->mensaje }}</td><td><span class="badge {{ $notificacion->leido ? 'badge-success' : 'badge-warning' }}">{{ $notificacion->leido ? 'Sí' : 'No' }}</span></td><td>{{ $notificacion->fecha ? \Illuminate\Support\Carbon::parse($notificacion->fecha)->format('d/m/Y H:i') : '-' }}</td></tr>
-            @endforeach
-          </tbody></table></div>
-          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $notificaciones])</div>
-        </section>
+        <section class="panel"><form class="toolbar" method="GET" action="{{ route('admin.panel') }}"><input type="hidden" name="section" value="notificaciones"><input class="input-sm" name="notif_search" value="{{ request('notif_search') }}" placeholder="Buscar título o mensaje"><select class="input-sm" name="notif_user_id"><option value="">Usuario</option>@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}" @selected((string)request('notif_user_id') === (string)$usuario->id)>{{ $usuario->name }}</option>@endforeach</select><select class="input-sm" name="notif_tipo"><option value="">Tipo</option>@foreach($notificationTypes as $tipo)<option value="{{ $tipo }}" @selected(request('notif_tipo') === $tipo)>{{ $tipo }}</option>@endforeach</select><select class="input-sm" name="notif_leido"><option value="">Leída</option><option value="1" @selected(request('notif_leido') === '1')>Sí</option><option value="0" @selected(request('notif_leido') === '0')>No</option></select><button class="btn btn-primary">Filtrar</button><a class="btn" href="{{ $sectionUrl('notificaciones') }}">Limpiar</a><span class="spacer"></span><details class="crud-details"><summary class="btn btn-gold">+ Notificación</summary><div class="edit-popover"><h4>Nueva notificación</h4><form method="POST" action="{{ route('admin.notificaciones.store') }}" class="admin-form-grid">@csrf@include('partials.admin-notificacion-form-fields', ['notificacion' => null, 'allUsers' => $allUsers])<div class="form-actions"><button class="btn btn-primary">Crear</button></div></form></div></details></form><div class="table-scroll"><table><thead><tr><th>ID</th><th>Usuario</th><th>Tipo</th><th>Título</th><th>Mensaje</th><th>Leída</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>@forelse($notificaciones as $notificacion)<tr><td>#{{ $notificacion->id }}</td><td>{{ $notificacion->user->name ?? ('User #' . $notificacion->user_id) }}</td><td>{{ $notificacion->tipo }}</td><td><strong>{{ $notificacion->titulo }}</strong></td><td class="muted">{{ \Illuminate\Support\Str::limit($notificacion->mensaje, 80) }}</td><td><span class="badge {{ $notificacion->leido ? 'badge-success' : 'badge-warning' }}">{{ $notificacion->leido ? 'Sí' : 'No' }}</span></td><td>{{ $notificacion->fecha ? \Illuminate\Support\Carbon::parse($notificacion->fecha)->format('d/m/Y H:i') : '-' }}</td><td class="actions"><div class="action-buttons"><details class="crud-details"><summary class="btn btn-sm">Editar</summary><div class="edit-popover"><h4>Editar notificación #{{ $notificacion->id }}</h4><form method="POST" action="{{ route('admin.notificaciones.update', $notificacion) }}" class="admin-form-grid">@csrf @method('PUT')@include('partials.admin-notificacion-form-fields', ['notificacion' => $notificacion, 'allUsers' => $allUsers])<div class="form-actions"><button class="btn btn-primary">Guardar</button></div></form></div></details><form method="POST" action="{{ route('admin.notificaciones.destroy', $notificacion) }}" onsubmit="return confirm('¿Eliminar notificación?')">@csrf @method('DELETE')<button class="btn btn-sm btn-danger">Eliminar</button></form></div></td></tr>@empty<tr><td colspan="8" class="muted">No hay notificaciones.</td></tr>@endforelse</tbody></table></div><div class="pagination-wrap">@include('partials.pagination', ['paginator' => $notificaciones])</div></section>
       @endif
 
-{{-- ════════════════════════════════════
-           SECCIÓN CHATS 
-           ════════════════════════════════════ --}}
       @if ($section === 'chats')
-        @php
-          $chats = \App\Models\Chat::with(['userOne', 'userTwo'])->withCount('mensajes')->paginate(15);
-        @endphp
-        <section class="panel">
-          <div class="panel-pad"><h2 class="panel-title">Chats del Sistema</h2><p class="muted">Conversaciones privadas entre usuarios.</p></div>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>ID</th><th>Nombre</th><th>Participantes</th><th>Nº Mensajes</th><th>Acciones</th></tr></thead>
-              <tbody>
-                @forelse($chats as $chat)
-                  <tr>
-                    <td>#{{ $chat->id }}</td>
-                    <td><strong>{{ $chat->nombre ?: 'Chat Privado' }}</strong></td>
-                    <td>{{ $chat->userOne->name ?? 'Usuario 1' }} y {{ $chat->userTwo->name ?? 'Usuario 2' }}</td>
-                    <td><span class="badge badge-info">{{ $chat->mensajes_count }} mensajes</span></td>
-                    <td class="actions">
-                      <form method="POST" action="{{ route('admin.chats.destroy', $chat->id) }}" onsubmit="return confirm('¿Borrar este chat y todos sus mensajes?')">
-                        @csrf @method('DELETE')
-                        <button class="btn btn-sm btn-danger">🗑 Eliminar</button>
-                      </form>
-                    </td>
-                  </tr>
-                @empty
-                  <tr><td colspan="5" class="muted" style="text-align:center;">No hay chats registrados.</td></tr>
-                @endforelse
-              </tbody>
-            </table>
-          </div>
-          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $chats])</div>
-        </section>
+        <section class="panel"><form class="toolbar" method="GET" action="{{ route('admin.panel') }}"><input type="hidden" name="section" value="chats"><input class="input-sm" name="chat_search" value="{{ request('chat_search') }}" placeholder="Buscar chat o usuario"><select class="input-sm" name="chat_user_id"><option value="">Participante</option>@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}" @selected((string)request('chat_user_id') === (string)$usuario->id)>{{ $usuario->name }}</option>@endforeach</select><select class="input-sm" name="chat_activo"><option value="">Activo</option><option value="1" @selected(request('chat_activo') === '1')>Sí</option><option value="0" @selected(request('chat_activo') === '0')>No</option></select><button class="btn btn-primary">Filtrar</button><a class="btn" href="{{ $sectionUrl('chats') }}">Limpiar</a><span class="spacer"></span><details class="crud-details"><summary class="btn btn-gold">+ Chat</summary><div class="edit-popover"><h4>Nuevo chat</h4><form method="POST" action="{{ route('admin.chats.store') }}" class="admin-form-grid">@csrf@include('partials.admin-chat-form-fields', ['chat' => null, 'allUsers' => $allUsers])<div class="form-actions"><button class="btn btn-primary">Crear</button></div></form></div></details></form><div class="table-scroll"><table><thead><tr><th>ID</th><th>Nombre</th><th>Participantes</th><th>Mensajes</th><th>Última actividad</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>@forelse($chats as $chat)<tr><td>#{{ $chat->id }}</td><td><strong>{{ $chat->nombre ?: 'Chat privado' }}</strong></td><td>{{ $chat->userOne->name ?? 'Usuario 1' }}<div class="muted">{{ $chat->userTwo->name ?? 'Usuario 2' }}</div></td><td>{{ $chat->mensajes_count }}</td><td>{{ $chat->last_message_at?->format('d/m/Y H:i') ?: $chat->updated_at?->format('d/m/Y H:i') }}</td><td><span class="badge {{ $chat->activo ? 'badge-success' : 'badge-muted' }}">{{ $chat->activo ? 'Activo' : 'Inactivo' }}</span></td><td class="actions"><div class="action-buttons"><a class="btn btn-sm" href="{{ $sectionUrl('mensajes', ['msg_chat_id' => $chat->id]) }}">Mensajes</a><details class="crud-details"><summary class="btn btn-sm">Editar</summary><div class="edit-popover"><h4>Editar chat #{{ $chat->id }}</h4><form method="POST" action="{{ route('admin.chats.update', $chat) }}" class="admin-form-grid">@csrf @method('PUT')@include('partials.admin-chat-form-fields', ['chat' => $chat, 'allUsers' => $allUsers])<div class="form-actions"><button class="btn btn-primary">Guardar</button></div></form></div></details><form method="POST" action="{{ route('admin.chats.destroy', $chat) }}" onsubmit="return confirm('¿Borrar este chat y sus mensajes?')">@csrf @method('DELETE')<button class="btn btn-sm btn-danger">Eliminar</button></form></div></td></tr>@empty<tr><td colspan="7" class="muted">No hay chats.</td></tr>@endforelse</tbody></table></div><div class="pagination-wrap">@include('partials.pagination', ['paginator' => $chats])</div></section>
       @endif
 
-      {{-- ════════════════════════════════════
-           SECCIÓN AMIGOS 
-           ════════════════════════════════════ --}}
+      @if ($section === 'mensajes')
+        <section class="panel"><form class="toolbar" method="GET" action="{{ route('admin.panel') }}"><input type="hidden" name="section" value="mensajes"><input class="input-sm" name="msg_search" value="{{ request('msg_search') }}" placeholder="Buscar contenido o usuario"><select class="input-sm" name="msg_user_id"><option value="">Usuario</option>@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}" @selected((string)request('msg_user_id') === (string)$usuario->id)>{{ $usuario->name }}</option>@endforeach</select><select class="input-sm" name="msg_chat_id"><option value="">Chat</option>@foreach($allChats as $chat)<option value="{{ $chat->id }}" @selected((string)request('msg_chat_id') === (string)$chat->id)>#{{ $chat->id }} {{ $chat->nombre }}</option>@endforeach</select><select class="input-sm" name="msg_editado"><option value="">Editado</option><option value="1" @selected(request('msg_editado') === '1')>Sí</option><option value="0" @selected(request('msg_editado') === '0')>No</option></select><button class="btn btn-primary">Filtrar</button><a class="btn" href="{{ $sectionUrl('mensajes') }}">Limpiar</a><span class="spacer"></span><details class="crud-details"><summary class="btn btn-gold">+ Mensaje</summary><div class="edit-popover"><h4>Nuevo mensaje</h4><form method="POST" action="{{ route('admin.mensajes.store') }}" class="admin-form-grid">@csrf@include('partials.admin-mensaje-form-fields', ['mensaje' => null, 'allUsers' => $allUsers, 'allChats' => $allChats])<div class="form-actions"><button class="btn btn-primary">Crear</button></div></form></div></details></form><div class="table-scroll"><table><thead><tr><th>ID</th><th>Chat</th><th>Emisor</th><th>Receptor</th><th>Contenido</th><th>Leído</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>@forelse($mensajes as $mensaje)<tr><td>#{{ $mensaje->id }}</td><td>#{{ $mensaje->chat_id }}</td><td>{{ $mensaje->emisor->name ?? ('User #' . $mensaje->emisor_id) }}</td><td>{{ $mensaje->receptor->name ?? ('User #' . $mensaje->receptor_id) }}</td><td>{{ \Illuminate\Support\Str::limit($mensaje->contenido, 90) }} @if($mensaje->editado)<span class="badge badge-info">Editado</span>@endif</td><td>{{ $mensaje->read_at ? $mensaje->read_at->format('d/m/Y H:i') : 'No' }}</td><td>{{ $mensaje->created_at?->format('d/m/Y H:i') }}</td><td class="actions"><div class="action-buttons"><details class="crud-details"><summary class="btn btn-sm">Editar</summary><div class="edit-popover"><h4>Editar mensaje #{{ $mensaje->id }}</h4><form method="POST" action="{{ route('admin.mensajes.update', $mensaje) }}" class="admin-form-grid">@csrf @method('PUT')@include('partials.admin-mensaje-form-fields', ['mensaje' => $mensaje, 'allUsers' => $allUsers, 'allChats' => $allChats])<div class="form-actions"><button class="btn btn-primary">Guardar</button></div></form></div></details><form method="POST" action="{{ route('admin.mensajes.destroy', $mensaje) }}" onsubmit="return confirm('¿Eliminar mensaje?')">@csrf @method('DELETE')<button class="btn btn-sm btn-danger">Eliminar</button></form></div></td></tr>@empty<tr><td colspan="8" class="muted">No hay mensajes.</td></tr>@endforelse</tbody></table></div><div class="pagination-wrap">@include('partials.pagination', ['paginator' => $mensajes])</div></section>
+      @endif
+
       @if ($section === 'amigos')
-        @php
-          $amigos = \DB::table('user_user')
-              ->join('users as u1', 'user_user.user_id', '=', 'u1.id')
-              ->join('users as u2', 'user_user.friend_id', '=', 'u2.id')
-              ->select('user_user.*', 'u1.name as user_name', 'u2.name as friend_name', 'u1.email as user_email')
-              ->paginate(15);
-        @endphp
-        <section class="panel">
-          <div class="panel-pad"><h2 class="panel-title">Relaciones de Amistad</h2></div>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>Usuario Principal</th><th>Amigo Vinculado</th><th>Fecha de vínculo</th><th>Acciones</th></tr></thead>
-              <tbody>
-                @forelse($amigos as $amigo)
-                  <tr>
-                    <td><strong>{{ $amigo->user_name }}</strong><div class="muted">{{ $amigo->user_email }}</div></td>
-                    <td><strong>{{ $amigo->friend_name }}</strong></td>
-                    <td>{{ $amigo->created_at ? \Carbon\Carbon::parse($amigo->created_at)->format('d/m/Y') : '-' }}</td>
-                    <td class="actions">
-                      <form method="POST" action="{{ route('admin.amigos.destroy', $amigo->user_id . '-' . $amigo->friend_id) }}" onsubmit="return confirm('¿Romper esta amistad?')">
-                        @csrf @method('DELETE')
-                        <button class="btn btn-sm btn-danger">🗑 Eliminar</button>
-                      </form>
-                    </td>
-                  </tr>
-                @empty
-                  <tr><td colspan="4" class="muted" style="text-align:center;">No hay amistades registradas.</td></tr>
-                @endforelse
-              </tbody>
-            </table>
-          </div>
-          <div class="pagination-wrap">@include('partials.pagination', ['paginator' => $amigos])</div>
-        </section>
+        <section class="panel"><form class="toolbar" method="GET"><input type="hidden" name="section" value="amigos"><input class="input-sm" name="friend_search" value="{{ request('friend_search') }}" placeholder="Buscar usuario o amigo"><select class="input-sm" name="friend_user_id"><option value="">Usuario</option>@foreach($allUsers as $usuario)<option value="{{ $usuario->id }}" @selected((string)request('friend_user_id') === (string)$usuario->id)>{{ $usuario->name }}</option>@endforeach</select><button class="btn btn-primary">Filtrar</button><a class="btn" href="{{ $sectionUrl('amigos') }}">Limpiar</a></form><div class="table-scroll"><table><thead><tr><th>Usuario principal</th><th>Amigo vinculado</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>@forelse($amigos as $amigo)<tr><td><strong>{{ $amigo->user_name }}</strong><div class="muted">{{ $amigo->user_email }}</div></td><td><strong>{{ $amigo->friend_name }}</strong><div class="muted">{{ $amigo->friend_email }}</div></td><td>{{ $amigo->created_at ? \Carbon\Carbon::parse($amigo->created_at)->format('d/m/Y') : '-' }}</td><td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showUserSummary({{ $amigo->user_id }})">Usuario</button><button class="btn btn-sm" onclick="showUserSummary({{ $amigo->friend_id }})">Amigo</button><form method="POST" action="{{ route('admin.amigos.destroy', $amigo->user_id . '-' . $amigo->friend_id) }}" onsubmit="return confirm('¿Romper esta amistad?')">@csrf @method('DELETE')<button class="btn btn-sm btn-danger">Eliminar</button></form></div></td></tr>@empty<tr><td colspan="4" class="muted">No hay amistades con estos filtros.</td></tr>@endforelse</tbody></table></div><div class="pagination-wrap">@include('partials.pagination', ['paginator' => $amigos])</div></section>
       @endif
-{{-- ══════════════════════════════════════════════════════════
-           SECCIÓN RANKINGS — pegar antes de </div></main> en admin.blade.php
-           ══════════════════════════════════════════════════════════ --}}
+
       @if ($section === 'rankings')
-
-        {{-- ── Toolbar búsqueda + ordenación ── --}}
-        <form method="GET" action="{{ route('admin.panel') }}" class="toolbar" style="border-radius:var(--radius) var(--radius) 0 0;">
-          <input type="hidden" name="section" value="rankings">
-          <input  class="input-sm" name="search" placeholder="🔍  Buscar jugador..." style="width:200px;"
-                  value="{{ request('search') }}">
-          <select class="input-sm" name="sort" onchange="this.form.submit()">
-            <option value="posicion"     {{ request('sort','posicion')==='posicion'     ? 'selected':'' }}>Ordenar: Posición</option>
-            <option value="puntos"       {{ request('sort')==='puntos'                  ? 'selected':'' }}>Ordenar: Puntos</option>
-            <option value="total_ganado" {{ request('sort')==='total_ganado'            ? 'selected':'' }}>Ordenar: Total ganado</option>
-            <option value="id"           {{ request('sort')==='id'                      ? 'selected':'' }}>Ordenar: ID</option>
-          </select>
-          <select class="input-sm" name="dir" onchange="this.form.submit()">
-            <option value="asc"  {{ request('dir','asc')==='asc'  ? 'selected':'' }}>↑ Ascendente</option>
-            <option value="desc" {{ request('dir')==='desc'       ? 'selected':'' }}>↓ Descendente</option>
-          </select>
-          <button type="submit" class="btn btn-primary">Buscar</button>
-          <a href="{{ $sectionUrl('rankings') }}" class="btn">Limpiar</a>
-          <div style="margin-left:auto;">
-            <button type="button" class="btn btn-gold" onclick="document.getElementById('modal-ranking-crear').style.display='flex'">
-              + Nueva entrada
-            </button>
-          </div>
-        </form>
-
-        {{-- ── Tabla ── --}}
-        <section class="panel" style="border-radius:0 0 var(--radius) var(--radius);margin-top:0;">
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  @php
-                    $s = request('sort','posicion');
-                    $d = request('dir','asc');
-                    $sortCols = ['posicion'=>'Posición','user_id'=>'Jugador','puntos'=>'Puntos','total_ganado'=>'Total ganado'];
-                  @endphp
-                  @foreach($sortCols as $col => $lbl)
-                  @php
-                    $newDir = ($s===$col && $d==='asc') ? 'desc' : 'asc';
-                    $arrow  = $s===$col ? ($d==='asc' ? ' ↑' : ' ↓') : '';
-                  @endphp
-                  <th>
-                    <a href="{{ route('admin.panel') }}?{{ http_build_query(array_merge(request()->except(['sort','dir','page']),['section'=>'rankings','sort'=>$col,'dir'=>$newDir])) }}"
-                       style="color:inherit;text-decoration:none;">
-                      {{ $lbl }}{{ $arrow }}
-                    </a>
-                  </th>
-                  @endforeach
-                  <th style="text-align:right;">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                @forelse($rankings as $r)
-                <tr>
-                  {{-- Posición con medalla --}}
-                  <td>
-                    @if($r->posicion === 1)      <span style="font-size:18px;">🥇</span> <strong style="color:var(--gold);">1º</strong>
-                    @elseif($r->posicion === 2)  <span style="font-size:18px;">🥈</span> <strong style="color:#b0bec5;">2º</strong>
-                    @elseif($r->posicion === 3)  <span style="font-size:18px;">🥉</span> <strong style="color:#cd7f32;">3º</strong>
-                    @else                        <strong style="color:var(--text-muted);">#{{ $r->posicion }}</strong>
-                    @endif
-                  </td>
-                  {{-- Jugador --}}
-                  <td>
-                    <strong>{{ $r->user->name ?? '—' }}</strong>
-                    <div class="muted">{{ $r->user->email ?? 'ID #'.$r->user_id }}</div>
-                  </td>
-                  {{-- Puntos --}}
-                  <td>
-                    <span style="font-size:16px;font-weight:800;color:var(--gold);">{{ number_format($r->puntos) }}</span>
-                    <span class="muted"> pts</span>
-                  </td>
-                  {{-- Total ganado --}}
-                  <td>
-                    <span style="font-weight:700;color:var(--success);">
-                      {{ number_format($r->total_ganado, 2, ',', '.') }} EUR
-                    </span>
-                  </td>
-                  {{-- Acciones --}}
-                  <td class="actions">
-                    <div class="action-buttons">
-                      {{-- Botón editar: abre modal inline --}}
-                      <button class="btn btn-sm"
-                              onclick="abrirEditarRanking({{ $r->id }}, {{ $r->user_id }}, {{ $r->posicion }}, {{ $r->puntos }}, {{ $r->total_ganado }})">
-                        ✏️ Editar
-                      </button>
-                      {{-- Borrar --}}
-                      <form method="POST"
-                            action="{{ route('admin.rankings.destroy', $r->id) }}"
-                            onsubmit="return confirm('¿Eliminar ranking de {{ addslashes($r->user->name ?? 'este usuario') }}?')"
-                            style="display:inline;">
-                        @csrf @method('DELETE')
-                        <button type="submit" class="btn btn-sm btn-danger">🗑 Eliminar</button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-                @empty
-                <tr>
-                  <td colspan="5" class="muted" style="text-align:center;padding:36px;">
-                    No hay entradas en el ranking
-                    @if(request('search')) para "<strong>{{ request('search') }}</strong>" @endif.
-                  </td>
-                </tr>
-                @endforelse
-              </tbody>
-            </table>
-          </div>
-
-          {{-- Paginación --}}
-          <div class="pagination-wrap">
-            @include('partials.pagination', ['paginator' => $rankings])
-          </div>
-        </section>
-
-        {{-- ════════════════════════════════════
-             MODAL CREAR RANKING
-             ════════════════════════════════════ --}}
-        <div id="modal-ranking-crear"
-             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.74);z-index:1000;align-items:center;justify-content:center;padding:20px;">
-          <div style="width:min(500px,95vw);background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.4);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-              <h2 class="panel-title" style="margin:0;">+ Nueva entrada de ranking</h2>
-              <button class="btn" onclick="document.getElementById('modal-ranking-crear').style.display='none'">✕ Cerrar</button>
-            </div>
-            <form method="POST" action="{{ route('admin.rankings.store') }}">
-              @csrf
-              <div style="display:grid;gap:14px;">
-                <div>
-                  <label class="stat-label">Usuario *</label>
-                  <select name="user_id" class="input-sm" style="width:100%;margin-top:6px;" required>
-                    <option value="">Selecciona un usuario</option>
-                    @foreach($usuariosAdmin as $u)
-                      <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
-                    @endforeach
-                  </select>
-                  @error('user_id') <div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</div> @enderror
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                  <div>
-                    <label class="stat-label">Posición *</label>
-                    <input type="number" name="posicion" class="input-sm" style="width:100%;margin-top:6px;"
-                           value="{{ old('posicion', 1) }}" min="1" required placeholder="Ej: 1">
-                    @error('posicion') <div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</div> @enderror
-                  </div>
-                  <div>
-                    <label class="stat-label">Puntos *</label>
-                    <input type="number" name="puntos" class="input-sm" style="width:100%;margin-top:6px;"
-                           value="{{ old('puntos', 0) }}" min="0" required placeholder="Ej: 1500">
-                    @error('puntos') <div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</div> @enderror
-                  </div>
-                </div>
-                <div>
-                  <label class="stat-label">Total ganado (EUR) *</label>
-                  <input type="number" name="total_ganado" class="input-sm" style="width:100%;margin-top:6px;"
-                         value="{{ old('total_ganado', 0) }}" min="0" step="0.01" required placeholder="Ej: 250.00">
-                  @error('total_ganado') <div style="color:var(--danger);font-size:12px;margin-top:4px;">{{ $message }}</div> @enderror
-                </div>
-              </div>
-              <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
-                <button type="button" class="btn" onclick="document.getElementById('modal-ranking-crear').style.display='none'">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Guardar ranking</button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        {{-- ════════════════════════════════════
-             MODAL EDITAR RANKING
-             ════════════════════════════════════ --}}
-        <div id="modal-ranking-editar"
-             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.74);z-index:1000;align-items:center;justify-content:center;padding:20px;">
-          <div style="width:min(500px,95vw);background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.4);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-              <h2 class="panel-title" style="margin:0;">✏️ Editar ranking</h2>
-              <button class="btn" onclick="document.getElementById('modal-ranking-editar').style.display='none'">✕ Cerrar</button>
-            </div>
-            <form method="POST" id="form-editar-ranking" action="">
-              @csrf @method('PUT')
-              <div style="display:grid;gap:14px;">
-                <div>
-                  <label class="stat-label">Usuario</label>
-                  <select name="user_id" id="edit-rk-user" class="input-sm" style="width:100%;margin-top:6px;" required>
-                    @foreach($usuariosAdmin as $u)
-                      <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
-                    @endforeach
-                  </select>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                  <div>
-                    <label class="stat-label">Posición *</label>
-                    <input type="number" name="posicion" id="edit-rk-posicion" class="input-sm"
-                           style="width:100%;margin-top:6px;" min="1" required>
-                  </div>
-                  <div>
-                    <label class="stat-label">Puntos *</label>
-                    <input type="number" name="puntos" id="edit-rk-puntos" class="input-sm"
-                           style="width:100%;margin-top:6px;" min="0" required>
-                  </div>
-                </div>
-                <div>
-                  <label class="stat-label">Total ganado (EUR) *</label>
-                  <input type="number" name="total_ganado" id="edit-rk-total" class="input-sm"
-                         style="width:100%;margin-top:6px;" min="0" step="0.01" required>
-                </div>
-              </div>
-              <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
-                <button type="button" class="btn" onclick="document.getElementById('modal-ranking-editar').style.display='none'">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Actualizar</button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <script>
-        function abrirEditarRanking(id, userId, posicion, puntos, total) {
-          document.getElementById('form-editar-ranking').action = '/admin/rankings/' + id;
-          document.getElementById('edit-rk-user').value    = userId;
-          document.getElementById('edit-rk-posicion').value = posicion;
-          document.getElementById('edit-rk-puntos').value  = puntos;
-          document.getElementById('edit-rk-total').value   = total;
-          document.getElementById('modal-ranking-editar').style.display = 'flex';
-        }
-        {{-- Reabrir modal crear si hay errores de validación --}}
-        @if($errors->any() && $section === 'rankings')
-          document.getElementById('modal-ranking-crear').style.display = 'flex';
-        @endif
-        </script>
-
+        <form method="GET" action="{{ route('admin.panel') }}" class="toolbar" style="border-radius:var(--radius) var(--radius) 0 0;"><input type="hidden" name="section" value="rankings"><input class="input-sm" name="search" placeholder="Buscar jugador..." style="width:200px;" value="{{ request('search') }}"><select class="input-sm" name="sort"><option value="posicion" @selected(request('sort','posicion')==='posicion')>Ordenar: Posición</option><option value="puntos" @selected(request('sort')==='puntos')>Ordenar: Puntos</option><option value="total_ganado" @selected(request('sort')==='total_ganado')>Ordenar: Total ganado</option><option value="id" @selected(request('sort')==='id')>Ordenar: ID</option></select><select class="input-sm" name="dir"><option value="asc" @selected(request('dir','asc')==='asc')>Ascendente</option><option value="desc" @selected(request('dir')==='desc')>Descendente</option></select><button type="submit" class="btn btn-primary">Filtrar</button><a href="{{ $sectionUrl('rankings') }}" class="btn">Limpiar</a><span class="spacer"></span><details class="crud-details"><summary class="btn btn-gold">+ Ranking</summary><div class="edit-popover"><h4>Nueva entrada de ranking</h4><form method="POST" action="{{ route('admin.rankings.store') }}" class="admin-form-grid">@csrf@include('partials.admin-ranking-form-fields', ['ranking' => null, 'usuariosAdmin' => $usuariosAdmin])<div class="form-actions"><button class="btn btn-primary">Crear</button></div></form></div></details></form><section class="panel" style="border-radius:0 0 var(--radius) var(--radius);margin-top:0;"><div class="table-scroll"><table><thead><tr><th>Posición</th><th>Jugador</th><th>Puntos</th><th>Total ganado</th><th>Acciones</th></tr></thead><tbody>@forelse($rankings as $r)<tr><td><strong>#{{ $r->posicion }}</strong></td><td><strong>{{ $r->user->name ?? '—' }}</strong><div class="muted">{{ $r->user->email ?? 'ID #'.$r->user_id }}</div></td><td>{{ number_format($r->puntos) }} pts</td><td>{{ $money($r->total_ganado) }}</td><td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showUserSummary({{ $r->user_id }})">Usuario</button><details class="crud-details"><summary class="btn btn-sm">Editar</summary><div class="edit-popover"><h4>Editar ranking #{{ $r->id }}</h4><form method="POST" action="{{ route('admin.rankings.update', $r->id) }}" class="admin-form-grid">@csrf @method('PUT')@include('partials.admin-ranking-form-fields', ['ranking' => $r, 'usuariosAdmin' => $usuariosAdmin])<div class="form-actions"><button class="btn btn-primary">Guardar</button></div></form></div></details><form method="POST" action="{{ route('admin.rankings.destroy', $r->id) }}" onsubmit="return confirm('¿Eliminar ranking?')">@csrf @method('DELETE')<button class="btn btn-sm btn-danger">Eliminar</button></form></div></td></tr>@empty<tr><td colspan="5" class="muted">No hay rankings.</td></tr>@endforelse</tbody></table></div><div class="pagination-wrap">@include('partials.pagination', ['paginator' => $rankings])</div></section>
       @endif
-      {{-- FIN SECCIÓN RANKINGS --}}
 
+      @if ($section === 'settings')
+        <section class="panel"><form class="toolbar" method="GET"><input type="hidden" name="section" value="settings"><input class="input-sm" name="setting_search" value="{{ request('setting_search') }}" placeholder="Buscar clave, valor o descripción"><select class="input-sm" name="setting_activo"><option value="">Activo</option><option value="1" @selected(request('setting_activo') === '1')>Sí</option><option value="0" @selected(request('setting_activo') === '0')>No</option></select><button class="btn btn-primary">Filtrar</button><a class="btn" href="{{ $sectionUrl('settings') }}">Limpiar</a><span class="spacer"></span><details class="crud-details"><summary class="btn btn-gold">+ Configuración</summary><div class="edit-popover"><h4>Nueva configuración</h4><form method="POST" action="{{ route('admin.settings.store') }}" class="admin-form-grid">@csrf@include('partials.admin-setting-form-fields', ['setting' => null])<div class="form-actions"><button class="btn btn-primary">Crear</button></div></form></div></details></form><div class="table-scroll"><table><thead><tr><th>ID</th><th>Clave</th><th>Valor</th><th>Descripción</th><th>Activo</th><th>Acciones</th></tr></thead><tbody>@forelse($settings as $setting)<tr><td>#{{ $setting->id }}</td><td><strong>{{ $setting->clave }}</strong></td><td>{{ $setting->valor }}</td><td class="muted">{{ $setting->descripcion }}</td><td><span class="badge {{ $setting->activo ? 'badge-success' : 'badge-muted' }}">{{ $setting->activo ? 'Sí' : 'No' }}</span></td><td class="actions"><div class="action-buttons"><details class="crud-details"><summary class="btn btn-sm">Editar</summary><div class="edit-popover"><h4>Editar configuración #{{ $setting->id }}</h4><form method="POST" action="{{ route('admin.settings.update', $setting) }}" class="admin-form-grid">@csrf @method('PUT')@include('partials.admin-setting-form-fields', ['setting' => $setting])<div class="form-actions"><button class="btn btn-primary">Guardar</button></div></form></div></details><form method="POST" action="{{ route('admin.settings.destroy', $setting) }}" onsubmit="return confirm('¿Eliminar configuración?')">@csrf @method('DELETE')<button class="btn btn-sm btn-danger">Eliminar</button></form></div></td></tr>@empty<tr><td colspan="6" class="muted">No hay configuraciones.</td></tr>@endforelse</tbody></table></div><div class="pagination-wrap">@include('partials.pagination', ['paginator' => $settings])</div></section>
+      @endif
+
+      @if ($section === 'parametros')
+        <section class="panel"><form class="toolbar" method="GET"><input type="hidden" name="section" value="parametros"><input class="input-sm" name="param_search" value="{{ request('param_search') }}" placeholder="Buscar juego"><select class="input-sm" name="param_juego_id"><option value="">Juego</option>@foreach($juegos as $juego)<option value="{{ $juego->id }}" @selected((string)request('param_juego_id') === (string)$juego->id)>{{ $juego->nombre }}</option>@endforeach</select><button class="btn btn-primary">Filtrar</button><a class="btn" href="{{ $sectionUrl('parametros') }}">Limpiar</a><span class="spacer"></span><details class="crud-details"><summary class="btn btn-gold">+ Parámetro</summary><div class="edit-popover"><h4>Nuevo parámetro</h4><form method="POST" action="{{ route('admin.parametros_ganancia.store') }}" class="admin-form-grid">@csrf@include('partials.admin-parametro-form-fields', ['parametro' => null, 'juegos' => $juegos])<div class="form-actions"><button class="btn btn-primary">Crear</button></div></form></div></details></form><div class="table-scroll"><table><thead><tr><th>ID</th><th>Juego</th><th>Multiplicación</th><th>Bonus racha</th><th>Acciones</th></tr></thead><tbody>@forelse($parametros as $parametro)<tr><td>#{{ $parametro->id }}</td><td>{{ $parametro->juego->nombre ?? ('Juego #' . $parametro->juego_id) }}</td><td>{{ $parametro->multiplicacion_por_juego }}</td><td>{{ $parametro->bonus_por_racha }}</td><td class="actions"><div class="action-buttons"><button class="btn btn-sm" onclick="showGameSummary({{ $parametro->juego_id }})">Juego</button><details class="crud-details"><summary class="btn btn-sm">Editar</summary><div class="edit-popover"><h4>Editar parámetro #{{ $parametro->id }}</h4><form method="POST" action="{{ route('admin.parametros_ganancia.update', $parametro) }}" class="admin-form-grid">@csrf @method('PUT')@include('partials.admin-parametro-form-fields', ['parametro' => $parametro, 'juegos' => $juegos])<div class="form-actions"><button class="btn btn-primary">Guardar</button></div></form></div></details><form method="POST" action="{{ route('admin.parametros_ganancia.destroy', $parametro) }}" onsubmit="return confirm('¿Eliminar parámetro?')">@csrf @method('DELETE')<button class="btn btn-sm btn-danger">Eliminar</button></form></div></td></tr>@empty<tr><td colspan="5" class="muted">No hay parámetros.</td></tr>@endforelse</tbody></table></div><div class="pagination-wrap">@include('partials.pagination', ['paginator' => $parametros])</div></section>
+      @endif
     </div>
   </main>
 </div>
 
-<div class="summary-modal" id="summaryModal">
-  <div class="modal-box">
-    <div class="modal-head">
-      <div><h2 class="panel-title" id="summaryTitle">Resumen usuario</h2><div class="muted" id="summaryEmail"></div></div>
-      <button class="btn" onclick="closeSummary()">Cerrar</button>
-    </div>
-    <div id="summaryBody" class="muted">Cargando...</div>
-  </div>
-</div>
+<div class="summary-modal" id="summaryModal"><div class="modal-box"><div class="modal-head"><div><h2 class="panel-title" id="summaryTitle">Resumen</h2><div class="muted" id="summaryEmail"></div></div><button class="btn" onclick="closeSummary()">Cerrar</button></div><div id="summaryBody" class="muted">Cargando...</div></div></div>
 
 <script>
 async function showUserSummary(userId) {
-  const modal = document.getElementById('summaryModal');
-  const body = document.getElementById('summaryBody');
-  modal.classList.add('open');
-  body.textContent = 'Cargando...';
-
+  const modal = document.getElementById('summaryModal'); const body = document.getElementById('summaryBody'); modal.classList.add('open'); body.textContent = 'Cargando...';
   try {
-    const response = await fetch(`/admin/usuarios/${userId}/resumen`, { headers: { 'Accept': 'application/json' } });
-    if (!response.ok) throw new Error('No se pudo cargar el resumen');
-    const data = await response.json();
-    document.getElementById('summaryTitle').textContent = data.user.name;
-    document.getElementById('summaryEmail').textContent = data.user.email + ' · Saldo ' + formatMoney(data.user.saldo);
-
-    const resumen = data.resumen;
-    let html = `<div class="mini-grid">
-      <div class="mini-card"><span>Total apuestas</span><b>${resumen.total_apuestas}</b></div>
-      <div class="mini-card"><span>Total apostado</span><b>${formatMoney(resumen.total_apostado)}</b></div>
-      <div class="mini-card"><span>Ganancia neta</span><b>${formatMoney(resumen.ganancia_neta)}</b></div>
-      <div class="mini-card"><span>Pérdida neta</span><b>${formatMoney(resumen.perdida_neta)}</b></div>
-      <div class="mini-card"><span>Balance neto</span><b>${formatMoney(resumen.balance_neto)}</b></div>
-      <div class="mini-card"><span>Activas</span><b>${resumen.pendientes}</b></div>
-    </div>`;
-
-    html += '<h3 class="panel-title">Por juego</h3>';
-    if (!data.por_juego.length) {
-      html += '<p class="muted">Este usuario todavía no tiene apuestas.</p>';
-    } else {
-      html += '<div class="table-scroll"><table><thead><tr><th>Juego</th><th>Total</th><th>Apostado</th><th>Ganadas</th><th>Perdidas</th><th>Activas</th><th>Balance</th></tr></thead><tbody>';
-      data.por_juego.forEach((row) => {
-        html += `<tr><td><strong>${escapeHtml(row.nombre || 'Juego')}</strong></td><td>${row.total}</td><td>${formatMoney(row.apostado)}</td><td>${row.ganadas}</td><td>${row.perdidas}</td><td>${row.pendientes}</td><td>${formatMoney(row.ganancia_neta - row.perdida_neta)}</td></tr>`;
-      });
-      html += '</tbody></table></div>';
-    }
+    const response = await fetch(`/admin/usuarios/${userId}/resumen`, { headers: { 'Accept': 'application/json' } }); if (!response.ok) throw new Error('No se pudo cargar el resumen'); const data = await response.json();
+    document.getElementById('summaryTitle').textContent = data.user.name; document.getElementById('summaryEmail').textContent = data.user.email + ' · Saldo ' + formatMoney(data.user.saldo);
+    const r = data.resumen;
+    let html = `<div class="mini-grid"><div class="mini-card"><span>Total apuestas</span><b>${r.total_apuestas}</b></div><div class="mini-card"><span>Total apostado</span><b>${formatMoney(r.total_apostado)}</b></div><div class="mini-card"><span>Ganancia usuarios</span><b>${formatMoney(r.ganancia_neta)}</b></div><div class="mini-card"><span>Pérdida usuarios</span><b>${formatMoney(r.perdida_neta)}</b></div><div class="mini-card"><span>Balance usuario</span><b>${formatMoney(r.balance_neto)}</b></div><div class="mini-card"><span>Balance casa</span><b>${formatMoney(r.balance_casa)}</b></div></div>`;
+    html += '<h3 class="panel-title">Juegos del usuario</h3>';
+    if (!data.por_juego.length) { html += '<p class="muted">Este usuario todavía no tiene apuestas.</p>'; }
+    else { html += '<div class="table-scroll"><table><thead><tr><th>Juego</th><th>Total</th><th>Apostado</th><th>Ganadas</th><th>Perdidas</th><th>Activas</th><th>Balance casa</th><th>Acciones</th></tr></thead><tbody>'; data.por_juego.forEach((row) => { html += `<tr><td><strong>${escapeHtml(row.nombre || 'Juego')}</strong></td><td>${row.total}</td><td>${formatMoney(row.apostado)}</td><td>${row.ganadas}</td><td>${row.perdidas}</td><td>${row.pendientes}</td><td>${formatMoney(row.balance_casa)}</td><td><a class="btn btn-sm" href="/admin?section=apuestas&user_id=${data.user.id}&juego_id=${row.juego_id || ''}">Filtrar</a></td></tr>`; }); html += '</tbody></table></div>'; }
     body.innerHTML = html;
-  } catch (error) {
-    body.textContent = error.message;
-  }
+  } catch (error) { body.textContent = error.message; }
+}
+async function showGameSummary(gameId) {
+  const modal = document.getElementById('summaryModal'); const body = document.getElementById('summaryBody'); modal.classList.add('open'); body.textContent = 'Cargando...';
+  try {
+    const response = await fetch(`/admin/juegos/${gameId}/resumen`, { headers: { 'Accept': 'application/json' } }); if (!response.ok) throw new Error('No se pudo cargar el resumen del juego'); const data = await response.json(); const r = data.resumen;
+    document.getElementById('summaryTitle').textContent = data.juego.nombre; document.getElementById('summaryEmail').textContent = data.juego.categoria + ' · ' + data.juego.estado;
+    let html = `<div class="mini-grid"><div class="mini-card"><span>Apuestas</span><b>${r.total_apuestas}</b></div><div class="mini-card"><span>Usuarios únicos</span><b>${r.usuarios_unicos}</b></div><div class="mini-card"><span>Total apostado</span><b>${formatMoney(r.total_apostado)}</b></div><div class="mini-card"><span>Ganado usuarios</span><b>${formatMoney(r.ganado_usuarios)}</b></div><div class="mini-card"><span>Perdido usuarios</span><b>${formatMoney(r.perdido_usuarios)}</b></div><div class="mini-card"><span>Balance casa</span><b>${formatMoney(r.balance_casa)}</b></div></div>`;
+    html += '<h3 class="panel-title">Usuarios que juegan a este juego</h3>';
+    if (!data.usuarios.length) { html += '<p class="muted">Este juego todavía no tiene apuestas.</p>'; }
+    else { html += '<div class="table-scroll"><table><thead><tr><th>Usuario</th><th>Apuestas</th><th>Apostado</th><th>Ganadas</th><th>Perdidas</th><th>Activas</th><th>Balance casa</th><th>Acciones</th></tr></thead><tbody>'; data.usuarios.forEach((row) => { html += `<tr><td><strong>${escapeHtml(row.name)}</strong><div class="muted">${escapeHtml(row.email)}</div></td><td>${row.total_apuestas}</td><td>${formatMoney(row.total_apostado)}</td><td>${row.ganadas}</td><td>${row.perdidas}</td><td>${row.pendientes}</td><td>${formatMoney(row.balance_casa)}</td><td><a class="btn btn-sm" href="/admin?section=apuestas&user_id=${row.user_id}&juego_id=${data.juego.id}">Filtrar</a></td></tr>`; }); html += '</tbody></table></div>'; }
+    body.innerHTML = html;
+  } catch (error) { body.textContent = error.message; }
 }
 function closeSummary() { document.getElementById('summaryModal').classList.remove('open'); }
 function formatMoney(value) { return Number(value || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' EUR'; }

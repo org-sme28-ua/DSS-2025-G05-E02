@@ -1,0 +1,4 @@
+@php $parametro = $parametro ?? null; @endphp
+<label><span class="field-label">Juego</span><select class="input-sm" name="juego_id" required>@foreach($juegos as $juego)<option value="{{ $juego->id }}" @selected($parametro && (int)$parametro->juego_id === (int)$juego->id)>{{ $juego->nombre }}</option>@endforeach</select></label>
+<label><span class="field-label">Multiplicación</span><input class="input-sm" type="number" step="0.01" min="0" name="multiplicacion_por_juego" value="{{ old('multiplicacion_por_juego', $parametro->multiplicacion_por_juego ?? 1) }}" required></label>
+<label><span class="field-label">Bonus por racha</span><input class="input-sm" type="number" step="0.01" min="0" name="bonus_por_racha" value="{{ old('bonus_por_racha', $parametro->bonus_por_racha ?? 0) }}" required></label>

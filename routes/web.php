@@ -170,6 +170,7 @@ Route::middleware('auth')->group(function () {
     // ============================================================
     Route::get('/admin', [AdminController::class, 'index'])->name('admin.panel');
     Route::get('/admin/usuarios/{user}/resumen', [AdminController::class, 'userSummary'])->name('admin.users.summary');
+    Route::get('/admin/juegos/{juego}/resumen', [AdminController::class, 'gameSummary'])->name('admin.games.summary');
     Route::post('/admin/apuestas/{apuesta}/resolver', [AdminController::class, 'resolvePrediction'])->name('admin.predictions.resolve');
 
     // ============================================================
