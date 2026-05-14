@@ -10,67 +10,81 @@ class SettingController extends Controller
     public function getData(Request $request)
     {
         $query = Setting::query();
-        
-        if ($request->has('search') && $request->search) {
-            $query->where('clave', 'like', '%' . $request->search . '%')
-                  ->orWhere('descripcion', 'like', '%' . $request->search . '%');
+
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where(function ($q) use ($search) {
+                $q->where('clave', 'like', $search)
+                    ->orWhere('valor', 'like', $search)
+                    ->orWhere('descripcion', 'like', $search);
+            });
         }
-        
-        if ($request->has('activo') && $request->activo !== '') {
+
+        if ($request->filled('activo')) {
             $query->where('activo', $request->activo === 'true');
         }
-        
-        $sort = $request->get('sort', 'id');
-        $dir = $request->get('dir', 'asc');
-        $query->orderBy($sort, $dir);
-        
-        $perPage = $request->get('per', 6);
-        $settings = $query->paginate($perPage);
-        
-        return response()->json($settings);
+
+        $allowedSorts = ['id', 'clave', 'valor', 'activo', 'created_at'];
+        $sort = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'id';
+        $dir = $request->get('dir') === 'desc' ? 'desc' : 'asc';
+
+        return response()->json($query->orderBy($sort, $dir)->paginate((int) $request->get('per', 10)));
     }
-    
+
     public function show($id)
     {
-        $setting = Setting::findOrFail($id);
-        return response()->json($setting);
+        return response()->json(Setting::findOrFail($id));
     }
-    
+
     public function store(Request $request)
     {
         $data = $request->validate([
-            'clave' => 'required|string|unique:settings',
-            'valor' => 'required|integer',
+            'clave' => 'required|string|max:255|unique:settings,clave',
+            'valor' => 'required|string|max:1000',
             'descripcion' => 'nullable|string',
-            'activo' => 'boolean',
+            'activo' => 'nullable|boolean',
         ]);
-        
+
+        $data['activo'] = (bool) ($data['activo'] ?? false);
         $setting = Setting::create($data);
-        
-        return response()->json(['success' => true, 'data' => $setting, 'message' => 'Configuración creada correctamente'], 201);
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $setting, 'message' => 'Configuración creada correctamente'], 201);
+        }
+
+        return back()->with('success', 'Configuración creada correctamente.');
     }
-    
+
     public function update(Request $request, $id)
     {
         $setting = Setting::findOrFail($id);
-        
+
         $data = $request->validate([
-            'clave' => 'required|string|unique:settings,clave,' . $id,
-            'valor' => 'required|integer',
+            'clave' => 'required|string|max:255|unique:settings,clave,' . $id,
+            'valor' => 'required|string|max:1000',
             'descripcion' => 'nullable|string',
-            'activo' => 'boolean',
+            'activo' => 'nullable|boolean',
         ]);
-        
+
+        $data['activo'] = (bool) ($data['activo'] ?? false);
         $setting->update($data);
-        
-        return response()->json(['success' => true, 'data' => $setting, 'message' => 'Configuración actualizada correctamente']);
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $setting->fresh(), 'message' => 'Configuración actualizada correctamente']);
+        }
+
+        return back()->with('success', 'Configuración actualizada correctamente.');
     }
-    
-    public function destroy($id)
+
+    public function destroy(Request $request, $id)
     {
         $setting = Setting::findOrFail($id);
         $setting->delete();
-        
-        return response()->json(['success' => true, 'message' => 'Configuración eliminada correctamente']);
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Configuración eliminada correctamente']);
+        }
+
+        return back()->with('success', 'Configuración eliminada correctamente.');
     }
 }

@@ -2,13 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Apuesta;
 use App\Models\Billetera;
-use App\Models\Juego;
-use App\Models\Notificacion;
+use App\Services\ApuestaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class CoinFlipController extends Controller
@@ -31,7 +28,7 @@ class CoinFlipController extends Controller
         return view('games.coin', compact('wallet', 'lastBets'));
     }
 
-    public function play(Request $request): RedirectResponse
+    public function play(Request $request, ApuestaService $apuestaService): RedirectResponse
     {
         $validated = $request->validate([
             'seleccion' => ['required', 'in:cara,cruz'],
@@ -46,79 +43,36 @@ class CoinFlipController extends Controller
 
         $user = auth()->user();
         $selected = $validated['seleccion'];
-        $amountCents = (int) round(((float) $validated['amount']) * 100);
+        $amount = round((float) $validated['amount'], 2);
+        $resultSide = random_int(0, 1) === 0 ? 'cara' : 'cruz';
+        $won = $selected === $resultSide;
 
         try {
-            $result = DB::transaction(function () use ($user, $selected, $amountCents) {
-                $wallet = Billetera::firstOrCreate(
-                    ['user_id' => $user->id],
-                    ['saldoDisponible' => 0, 'moneda' => 'EUR']
-                );
-
-                $wallet = Billetera::whereKey($wallet->id)->lockForUpdate()->firstOrFail();
-                $balanceBeforeCents = (int) round(((float) $wallet->saldoDisponible) * 100);
-
-                if ($amountCents <= 0) {
-                    throw new \RuntimeException('La apuesta debe ser mayor que 0.');
-                }
-
-                if ($balanceBeforeCents < $amountCents) {
-                    throw new \RuntimeException('Saldo insuficiente para hacer esa apuesta.');
-                }
-
-                $resultSide = random_int(0, 1) === 0 ? 'cara' : 'cruz';
-                $won = $selected === $resultSide;
-                $balanceAfterCents = $won
-                    ? $balanceBeforeCents + $amountCents
-                    : $balanceBeforeCents - $amountCents;
-
-                $wallet->saldoDisponible = $balanceAfterCents / 100;
-                $wallet->save();
-
-                $juego = Juego::firstOrCreate(
-                    ['nombre' => 'Cara o Cruz'],
-                    ['categoria' => 'Azar simple', 'estado' => 'abierta']
-                );
-
-                Apuesta::create([
-                    'user_id' => $user->id,
-                    'juego_id' => $juego->id,
-                    'tipo' => 'cara_cruz',
-                    'descripcion' => 'Apuesta simple a cara o cruz',
-                    'seleccion' => ucfirst($selected),
-                    'resultado' => ucfirst($resultSide),
-                    'monto' => $amountCents / 100,
-                    'cuota' => 2.00,
-                    'estado' => $won ? 'ganada' : 'perdida',
-                    'fecha' => now(),
-                    'balance_antes' => $balanceBeforeCents / 100,
-                    'balance_despues' => $balanceAfterCents / 100,
-                    'resuelta_at' => now(),
-                ]);
-
-                Notificacion::crearNotificacion(
-                    $user->id,
-                    $won ? 'Cara o cruz ganada' : 'Cara o cruz perdida',
-                    $won
-                        ? 'Acertaste ' . ucfirst($resultSide) . ' y ganaste ' . number_format($amountCents / 100, 2, ',', '.') . ' EUR netos.'
-                        : 'Salió ' . ucfirst($resultSide) . ' y perdiste ' . number_format($amountCents / 100, 2, ',', '.') . ' EUR.',
-                    'apuesta'
-                );
-
-                return [
-                    'seleccion' => $selected,
-                    'resultado' => $resultSide,
-                    'won' => $won,
-                    'amount' => $amountCents / 100,
-                    'balance_after' => $balanceAfterCents / 100,
-                ];
-            });
+            $result = $apuestaService->procesarApuesta($user, [
+                'juego_nombre' => 'Cara o Cruz',
+                'juego_categoria' => 'Azar simple',
+                'tipo' => 'cara_cruz',
+                'descripcion' => 'Apuesta simple a cara o cruz',
+                'seleccion' => ucfirst($selected),
+                'resultado' => ucfirst($resultSide),
+                'monto' => $amount,
+                'cuota' => 2.00,
+                'estado' => $won ? 'ganada' : 'perdida',
+                'notificacion_titulo' => $won ? 'Cara o cruz ganada' : 'Cara o cruz perdida',
+                'notificacion_mensaje' => $won
+                    ? 'Acertaste ' . ucfirst($resultSide) . ' y ganaste ' . number_format($amount, 2, ',', '.') . ' EUR netos.'
+                    : 'Salió ' . ucfirst($resultSide) . ' y perdiste ' . number_format($amount, 2, ',', '.') . ' EUR.',
+            ]);
         } catch (\Throwable $e) {
             return back()->withErrors(['amount' => $e->getMessage()])->withInput();
         }
 
         return redirect()
             ->route('coin.index')
-            ->with('coin_result', $result);
+            ->with('coin_result', array_merge($result, [
+                'seleccion' => $selected,
+                'resultado' => $resultSide,
+                'won' => $won,
+            ]));
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Billetera;
 use App\Models\Notificacion;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -179,6 +180,34 @@ class BilleteraController extends Controller
         return array_merge($data, ['card_number_digits' => $digits]);
     }
 
+
+    public function obtenerBilleteraBloqueada(User $user): Billetera
+    {
+        $billetera = Billetera::firstOrCreate(
+            ['user_id' => $user->id],
+            ['saldoDisponible' => 0, 'moneda' => 'EUR']
+        );
+
+        return Billetera::whereKey($billetera->id)->lockForUpdate()->firstOrFail();
+    }
+
+    public function comprobarSaldoDisponible(Billetera $billetera, int $montoCentimos): void
+    {
+        $saldoCentimos = (int) round(((float) $billetera->saldoDisponible) * 100);
+
+        if ($saldoCentimos < $montoCentimos) {
+            throw new \RuntimeException('Saldo insuficiente para hacer esa apuesta.');
+        }
+    }
+
+    public function actualizarSaldoDesdeCentimos(Billetera $billetera, int $nuevoSaldoCentimos): Billetera
+    {
+        $billetera->saldoDisponible = $nuevoSaldoCentimos / 100;
+        $billetera->save();
+
+        return $billetera->refresh();
+    }
+
     public function getData(Request $request)
     {
         $query = Billetera::query();
@@ -209,17 +238,22 @@ class BilleteraController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
+            'user_id' => 'required|exists:users,id|unique:billeteras,user_id',
             'saldoDisponible' => 'required|numeric|min:0',
             'moneda' => 'required|string|max:10',
         ]);
 
         $billetera = Billetera::create($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $billetera,
-            'message' => 'Billetera creada correctamente'
-        ], 201);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'data' => $billetera,
+                'message' => 'Billetera creada correctamente'
+            ], 201);
+        }
+
+        return back()->with('success', 'Billetera creada correctamente.');
     }
 
     public function update(Request $request, $id)
@@ -227,27 +261,36 @@ class BilleteraController extends Controller
         $billetera = Billetera::findOrFail($id);
 
         $data = $request->validate([
+            'user_id' => 'sometimes|exists:users,id|unique:billeteras,user_id,' . $billetera->id,
             'saldoDisponible' => 'sometimes|numeric|min:0',
             'moneda' => 'sometimes|string|max:10',
         ]);
 
         $billetera->update($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $billetera,
-            'message' => 'Billetera actualizada correctamente'
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'data' => $billetera->fresh(),
+                'message' => 'Billetera actualizada correctamente'
+            ]);
+        }
+
+        return back()->with('success', 'Billetera actualizada correctamente.');
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $billetera = Billetera::findOrFail($id);
         $billetera->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Billetera eliminada correctamente'
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Billetera eliminada correctamente'
+            ]);
+        }
+
+        return back()->with('success', 'Billetera eliminada correctamente.');
     }
 }

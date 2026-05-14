@@ -12,32 +12,39 @@ class MensajeController extends Controller
         $query = Mensaje::query()->with(['chat', 'emisor', 'receptor']);
 
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = '%' . $request->search . '%';
             $query->where(function ($query) use ($search) {
-                $query->where('contenido', 'like', '%' . $search . '%')
-                    ->orWhereHas('emisor', function ($query) use ($search) {
-                        $query->where('name', 'like', '%' . $search . '%')
-                            ->orWhere('email', 'like', '%' . $search . '%');
-                    })
-                    ->orWhereHas('receptor', function ($query) use ($search) {
-                        $query->where('name', 'like', '%' . $search . '%')
-                            ->orWhere('email', 'like', '%' . $search . '%');
-                    });
+                $query->where('contenido', 'like', $search)
+                    ->orWhereHas('emisor', fn ($q) => $q->where('name', 'like', $search)->orWhere('email', 'like', $search))
+                    ->orWhereHas('receptor', fn ($q) => $q->where('name', 'like', $search)->orWhere('email', 'like', $search));
             });
         }
 
-        if ($request->has('editado') && $request->editado !== '') {
+        if ($request->filled('editado')) {
             $query->where('editado', $request->editado === 'true');
         }
 
-        $sort = in_array($request->get('sort'), ['id', 'chat_id', 'emisor_id', 'receptor_id', 'created_at', 'updated_at'], true)
-            ? $request->get('sort')
-            : 'id';
+        if ($request->filled('chat_id')) {
+            $query->where('chat_id', $request->chat_id);
+        }
 
+        if ($request->filled('user_id')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('emisor_id', $request->user_id)->orWhere('receptor_id', $request->user_id);
+            });
+        }
+
+        $allowedSorts = ['id', 'chat_id', 'emisor_id', 'receptor_id', 'created_at', 'updated_at'];
+        $sort = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'id';
         $dir = $request->get('dir') === 'desc' ? 'desc' : 'asc';
-        $perPage = (int) $request->get('per', 6);
 
-        return response()->json($query->orderBy($sort, $dir)->paginate($perPage));
+        $result = $query->orderBy($sort, $dir)->paginate((int) $request->get('per', 10));
+
+        if ($request->expectsJson()) {
+            return response()->json($result);
+        }
+
+        return $result;
     }
 
     public function getData(Request $request)
@@ -66,7 +73,7 @@ class MensajeController extends Controller
             'read_at' => ['nullable', 'date'],
         ]);
 
-        $data['editado'] = $data['editado'] ?? false;
+        $data['editado'] = (bool) ($data['editado'] ?? false);
 
         $mensaje = Mensaje::create($data);
 
@@ -75,11 +82,15 @@ class MensajeController extends Controller
             'activo' => true,
         ]);
 
-        return response()->json([
-            'success' => true,
-            'data' => $mensaje,
-            'message' => 'Mensaje creado correctamente',
-        ], 201);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'data' => $mensaje,
+                'message' => 'Mensaje creado correctamente',
+            ], 201);
+        }
+
+        return back()->with('success', 'Mensaje creado correctamente.');
     }
 
     public function store(Request $request)
@@ -102,11 +113,15 @@ class MensajeController extends Controller
 
         $mensaje->update($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $mensaje,
-            'message' => 'Mensaje actualizado correctamente',
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'data' => $mensaje->fresh(),
+                'message' => 'Mensaje actualizado correctamente',
+            ]);
+        }
+
+        return back()->with('success', 'Mensaje actualizado correctamente.');
     }
 
     public function update(Request $request, $id)
@@ -114,19 +129,23 @@ class MensajeController extends Controller
         return $this->actualizar($request, $id);
     }
 
-    public function eliminar($id)
+    public function eliminar(Request $request, $id)
     {
         $mensaje = Mensaje::findOrFail($id);
         $mensaje->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Mensaje eliminado correctamente',
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Mensaje eliminado correctamente',
+            ]);
+        }
+
+        return back()->with('success', 'Mensaje eliminado correctamente.');
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        return $this->eliminar($id);
+        return $this->eliminar($request, $id);
     }
 }

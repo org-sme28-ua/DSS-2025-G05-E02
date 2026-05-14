@@ -210,16 +210,21 @@ class ChatController extends Controller
         ]);
 
         $data['user_one_id'] = $data['user_one_id'] ?? $data['user_id'];
-        $data['activo'] = $data['activo'] ?? true;
+        $data['user_two_id'] = $data['user_two_id'] ?? $data['user_id'];
+        $data['activo'] = (bool) ($data['activo'] ?? true);
         $data['nombre'] = $data['nombre'] ?? 'Chat privado';
 
         $chat = Chat::create($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $chat,
-            'message' => 'Chat creado correctamente',
-        ], 201);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'data' => $chat,
+                'message' => 'Chat creado correctamente',
+            ], 201);
+        }
+
+        return back()->with('success', 'Chat creado correctamente.');
     }
 
     public function update(Request $request, $id)
@@ -227,7 +232,7 @@ class ChatController extends Controller
         $chat = Chat::findOrFail($id);
 
         $data = $request->validate([
-            'nombre' => ['sometimes', 'string', 'max:255'],
+            'nombre' => ['sometimes', 'nullable', 'string', 'max:255'],
             'activo' => ['sometimes', 'boolean'],
             'user_one_id' => ['sometimes', 'nullable', 'exists:users,id'],
             'user_two_id' => ['sometimes', 'nullable', 'exists:users,id', 'different:user_one_id'],
@@ -236,19 +241,29 @@ class ChatController extends Controller
 
         $chat->update($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $chat,
-            'message' => 'Chat actualizado correctamente',
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'data' => $chat->fresh(),
+                'message' => 'Chat actualizado correctamente',
+            ]);
+        }
+
+        return back()->with('success', 'Chat actualizado correctamente.');
     }
-    public function destroy($id)
+
+    public function destroy(Request $request, $id)
     {
         $chat = Chat::findOrFail($id);
         $chat->delete();
 
-        // Si vienes desde el panel de Blade, te recarga la página con un mensaje verde
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Chat eliminado correctamente',
+            ]);
+        }
+
         return back()->with('success', 'Chat eliminado correctamente.');
     }
-    
 }

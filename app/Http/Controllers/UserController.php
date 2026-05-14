@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -11,28 +12,28 @@ class UserController extends Controller
     public function getData(Request $request)
     {
         $query = User::query();
-        
-        // Búsqueda por nombre o email
-        if ($request->has('search') && $request->search) {
-            $query->where('name', 'like', '%' . $request->search . '%')
-                ->orWhere('email', 'like', '%' . $request->search . '%');
+
+        if ($request->filled('search')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->search . '%')
+                    ->orWhere('email', 'like', '%' . $request->search . '%')
+                    ->orWhere('role', 'like', '%' . $request->search . '%');
+            });
         }
-        
-        // Filtro por Nivel VIP
-        if ($request->has('nivel_vip') && $request->nivel_vip !== '') {
+
+        if ($request->filled('nivel_vip')) {
             $query->where('nivel_vip', $request->nivel_vip);
         }
-        
-        // Ordenamiento
-        $sort = $request->get('sort', 'id');
-        $dir = $request->get('dir', 'asc');
-        $query->orderBy($sort, $dir);
-        
-        // Paginación
-        $perPage = $request->get('per', 6);
-        $usuarios = $query->paginate($perPage);
-        
-        return response()->json($usuarios);
+
+        if ($request->filled('role')) {
+            $query->where('role', $request->role);
+        }
+
+        $allowedSorts = ['id', 'name', 'email', 'role', 'puntos_fidelidad', 'nivel_vip', 'created_at'];
+        $sort = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'id';
+        $dir = $request->get('dir') === 'desc' ? 'desc' : 'asc';
+
+        return response()->json($query->orderBy($sort, $dir)->paginate((int) $request->get('per', 10)));
     }
 
     public function amigos(User $user)
@@ -64,89 +65,93 @@ class UserController extends Controller
 
     public function crear(Request $request)
     {
-        try {
-            $data = $request->validate([
-                'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-                'password' => ['required', 'string', 'min:6'],
-                'puntos_fidelidad' => ['sometimes', 'integer', 'min:0'],
-                'nivel_vip' => ['sometimes', 'integer', 'min:0'],
-            ]);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'regex:/[a-z]/', 'regex:/[A-Z]/', 'regex:/[0-9]/'],
+            'puntos_fidelidad' => ['nullable', 'integer', 'min:0'],
+            'nivel_vip' => ['nullable', 'integer', 'min:0'],
+            'role' => ['nullable', 'in:admin,operator,player'],
+        ], [
+            'password.regex' => 'La contraseña debe incluir mayúscula, minúscula y número.',
+        ]);
 
-            $data['password'] = Hash::make($data['password']);
+        $data['password'] = Hash::make($data['password']);
+        $data['puntos_fidelidad'] = $data['puntos_fidelidad'] ?? 0;
+        $data['nivel_vip'] = $data['nivel_vip'] ?? 0;
+        $data['role'] = $data['role'] ?? 'player';
 
+        $user = DB::transaction(function () use ($data) {
             $user = User::create($data);
+            $user->billetera()->create(['saldoDisponible' => 0, 'moneda' => 'EUR']);
+            return $user;
+        });
 
-            // Creamos la billetera básica asociada
-            $user->billetera()->create(['saldoDisponible' => 0, 'moneda' => 'EUR']); 
-
-            return response()->json([
-                'success' => true, 
-                'data' => $user, 
-                'message' => 'Usuario creado correctamente'
-            ], 201);
-
-        } catch (\Exception $e) {
-            // Esto capturará cualquier error fatal y te lo enviará al frontend
-            return response()->json([
-                'success' => false, 
-                'message' => 'Error del servidor: ' . $e->getMessage()
-            ], 500);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $user, 'message' => 'Usuario creado correctamente'], 201);
         }
+
+        return back()->with('success', 'Usuario creado correctamente.');
     }
 
     public function actualizar(Request $request, User $user)
     {
-        try {
-            $data = $request->validate([
-                'name' => ['sometimes', 'string', 'max:255'],
-                'email' => ['sometimes', 'string', 'email', 'max:255', 'unique:users,email,'.$user->id],
-                'password' => ['nullable', 'string', 'min:6'],
-                'puntos_fidelidad' => ['sometimes', 'integer', 'min:0'],
-                'nivel_vip' => ['sometimes', 'integer', 'min:0'],
-            ]);
+        $data = $request->validate([
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'email' => ['sometimes', 'required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'password' => ['nullable', 'string', 'min:8', 'regex:/[a-z]/', 'regex:/[A-Z]/', 'regex:/[0-9]/'],
+            'puntos_fidelidad' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'nivel_vip' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'role' => ['sometimes', 'required', 'in:admin,operator,player'],
+        ], [
+            'password.regex' => 'La contraseña debe incluir mayúscula, minúscula y número.',
+        ]);
 
-            if (!empty($data['password'])) {
-                $data['password'] = Hash::make($data['password']);
-            } else {
-                unset($data['password']);
-            }
-
-            $user->update($data);
-
-            return response()->json([
-                'success' => true, 
-                'data' => $user, 
-                'message' => 'Usuario actualizado correctamente'
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false, 
-                'message' => 'Error del servidor: ' . $e->getMessage()
-            ], 500);
+        if (!empty($data['password'])) {
+            $data['password'] = Hash::make($data['password']);
+        } else {
+            unset($data['password']);
         }
+
+        $user->update($data);
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $user->fresh(), 'message' => 'Usuario actualizado correctamente']);
+        }
+
+        return back()->with('success', 'Usuario actualizado correctamente.');
     }
 
-    public function eliminar(User $user)
+    public function eliminar(Request $request, User $user)
     {
+        if ((int) auth()->id() === (int) $user->id) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'No puedes eliminar tu propio usuario desde el panel.'], 422);
+            }
+            return back()->with('error', 'No puedes eliminar tu propio usuario desde el panel.');
+        }
+
         $user->delete();
 
-        return response()->json(null, 204);
+        if ($request->expectsJson()) {
+            return response()->json(null, 204);
+        }
+
+        return back()->with('success', 'Usuario eliminado correctamente.');
     }
 
     public function quitarAmistadAdmin($ids)
     {
-        // Separa los dos IDs que vienen en la URL (ejemplo: 4-7)
-        list($userId, $friendId) = explode('-', $ids);
-        
-        \DB::table('user_user')
+        [$userId, $friendId] = explode('-', $ids);
+
+        DB::table('user_user')
             ->where('user_id', $userId)
             ->where('friend_id', $friendId)
             ->delete();
 
         return back()->with('success', 'Vínculo de amistad eliminado correctamente.');
     }
+
     public function addFriendFront(Request $request)
     {
         $request->validate([
@@ -155,11 +160,10 @@ class UserController extends Controller
             'email.required' => 'Debes introducir un email.',
             'email.email' => 'El formato del email no es válido.'
         ]);
-        
+
         $friend = User::where('email', $request->email)->first();
         $user = auth()->user();
 
-        // Validaciones de seguridad
         if (!$friend) {
             return back()->with('error', 'No se encontró ningún usuario con ese email.');
         }
@@ -172,7 +176,6 @@ class UserController extends Controller
             return back()->with('error', 'Este usuario ya está en tu lista de amigos.');
         }
 
-        // Crear la relación (vínculo)
         $user->amigos()->attach($friend->id);
 
         return back()->with('success', '¡Genial! ' . $friend->name . ' ha sido añadido a tus amigos.');

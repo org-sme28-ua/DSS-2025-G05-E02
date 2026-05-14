@@ -137,6 +137,52 @@
             margin: 0;
         }
         
+
+
+        .contact-panel {
+            margin-top: 42px;
+            background: linear-gradient(135deg, rgba(240,192,64,.14), rgba(192,57,43,.12));
+            border: 1px solid rgba(240,192,64,.35);
+            border-radius: var(--radius);
+            padding: 28px;
+            box-shadow: 0 18px 45px rgba(0,0,0,.22);
+        }
+
+        .contact-panel h3 {
+            margin: 0 0 14px;
+            color: var(--gold);
+            font-family: 'Playfair Display', serif;
+            font-size: 26px;
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+        }
+
+        .contact-item {
+            background: rgba(255,255,255,.07);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+        }
+
+        .contact-label {
+            display: block;
+            color: var(--text-muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            margin-bottom: 4px;
+        }
+
+        .contact-value {
+            color: white;
+            font-weight: 700;
+            word-break: break-word;
+        }
+
         .footer {
             text-align: center;
             padding: 40px;
@@ -189,6 +235,25 @@
                 <p>Nuestra billetera virtual procesa tus ganancias al instante. Sin esperas, sin excusas. Tu dinero está disponible cuando lo necesitas.</p>
             </div>
         </div>
+
+        <section class="contact-panel" aria-labelledby="contacto">
+            <h3 id="contacto">Contacto</h3>
+            <div class="contact-grid">
+                <div class="contact-item">
+                    <span class="contact-label">Administrador principal</span>
+                    <span class="contact-value">Alfonso Gonzales Espinosa</span>
+                </div>
+                <div class="contact-item">
+                    <span class="contact-label">Correo</span>
+                    <span class="contact-value">admin@bookie20.test</span>
+                </div>
+                <div class="contact-item">
+                    <span class="contact-label">Teléfono</span>
+                    <span class="contact-value">+34 673 258 262</span>
+                </div>
+            </div>
+        </section>
+
     </main>
 
     <footer class="footer">
