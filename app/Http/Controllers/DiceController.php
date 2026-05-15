@@ -6,6 +6,7 @@ use App\Models\Apuesta;
 use App\Models\Billetera;
 use App\Models\Juego;
 use App\Models\Notificacion;
+use App\Models\Ranking;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -69,6 +70,9 @@ class DiceController extends Controller
                 $roll = random_int(1, 6);
                 $resultBand = $roll <= 3 ? 'bajo' : 'alto';
                 $won = $selected === $resultBand;
+                $monto = $amountCents / 100;
+                $cuota = 2.00;
+
                 $balanceAfterCents = $won
                     ? $balanceBeforeCents + $amountCents
                     : $balanceBeforeCents - $amountCents;
@@ -82,36 +86,49 @@ class DiceController extends Controller
                 );
 
                 Apuesta::create([
-                    'user_id' => $user->id,
-                    'juego_id' => $juego->id,
-                    'tipo' => 'dados',
-                    'descripcion' => 'Apuesta a dado bajo (1-3) o alto (4-6)',
-                    'seleccion' => $selected === 'bajo' ? 'Bajo (1-3)' : 'Alto (4-6)',
-                    'resultado' => 'Dado ' . $roll . ' - ' . ucfirst($resultBand),
-                    'monto' => $amountCents / 100,
-                    'cuota' => 2.00,
-                    'estado' => $won ? 'ganada' : 'perdida',
-                    'fecha' => now(),
-                    'balance_antes' => $balanceBeforeCents / 100,
+                    'user_id'         => $user->id,
+                    'juego_id'        => $juego->id,
+                    'tipo'            => 'dados',
+                    'descripcion'     => 'Apuesta a dado bajo (1-3) o alto (4-6)',
+                    'seleccion'       => $selected === 'bajo' ? 'Bajo (1-3)' : 'Alto (4-6)',
+                    'resultado'       => 'Dado ' . $roll . ' - ' . ucfirst($resultBand),
+                    'monto'           => $monto,
+                    'cuota'           => $cuota,
+                    'estado'          => $won ? 'ganada' : 'perdida',
+                    'fecha'           => now(),
+                    'balance_antes'   => $balanceBeforeCents / 100,
                     'balance_despues' => $balanceAfterCents / 100,
-                    'resuelta_at' => now(),
+                    'resuelta_at'     => now(),
                 ]);
+
+                // ── Ranking ──────────────────────────────────────────────────
+                // Ganada: floor(monto × cuota × 10)  → premia la ganancia real
+                // Perdida: floor(monto × 2)           → fidelidad por participar
+                if ($won) {
+                    $ganancia     = $monto;
+                    $nuevosPuntos = (int) floor($monto * $cuota * 10);
+                } else {
+                    $ganancia     = 0;
+                    $nuevosPuntos = (int) floor($monto * 2);
+                }
+                Ranking::actualizarRankingUsuario($user, $ganancia, $nuevosPuntos);
+                // ─────────────────────────────────────────────────────────────
 
                 Notificacion::crearNotificacion(
                     $user->id,
                     $won ? 'Dados ganados' : 'Dados perdidos',
                     $won
-                        ? 'Salió ' . $roll . ' y acertaste. Ganaste ' . number_format($amountCents / 100, 2, ',', '.') . ' EUR netos.'
-                        : 'Salió ' . $roll . ' y perdiste ' . number_format($amountCents / 100, 2, ',', '.') . ' EUR.',
+                        ? 'Salió ' . $roll . ' y acertaste. Ganaste ' . number_format($monto, 2, ',', '.') . ' EUR netos.'
+                        : 'Salió ' . $roll . ' y perdiste ' . number_format($monto, 2, ',', '.') . ' EUR.',
                     'apuesta'
                 );
 
                 return [
-                    'seleccion' => $selected,
-                    'roll' => $roll,
-                    'resultado' => $resultBand,
-                    'won' => $won,
-                    'amount' => $amountCents / 100,
+                    'seleccion'     => $selected,
+                    'roll'          => $roll,
+                    'resultado'     => $resultBand,
+                    'won'           => $won,
+                    'amount'        => $monto,
                     'balance_after' => $balanceAfterCents / 100,
                 ];
             });

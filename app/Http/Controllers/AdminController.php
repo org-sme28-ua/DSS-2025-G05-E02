@@ -11,6 +11,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Ranking;
+use App\Models\RankingSemanal;
+use Carbon\CarbonImmutable;
 
 class AdminController extends Controller
 {
@@ -363,5 +365,68 @@ class AdminController extends Controller
         }
 
         return back()->with('success', 'Predicción actualizada correctamente.');
+    }
+ public function generarTopSemanal()
+    {
+        $this->ensureAdmin();
+
+        $hoy   = \Carbon\CarbonImmutable::now();
+        $semana = (int) $hoy->format('W');   // número ISO de semana
+        $anio   = (int) $hoy->format('o');   // año ISO (puede diferir del año del calendario en sem. 1 y 53)
+
+        $inicioSemana = $hoy->startOfWeek();  // lunes
+        $finSemana    = $hoy->endOfWeek();    // domingo
+
+        // ── 1. Sacar el Top 5 actual del ranking global ──────────────────────
+        $top5 = \App\Models\Ranking::with('user')
+            ->orderBy('posicion')
+            ->take(5)
+            ->get();
+
+        if ($top5->isEmpty()) {
+            return redirect()
+                ->route('admin.panel', ['section' => 'rankings'])
+                ->with('error', 'No hay jugadores en el ranking todavía.');
+        }
+
+        // ── 2. Borrar snapshot anterior de esta misma semana (idempotente) ───
+        \App\Models\RankingSemanal::where('semana', $semana)
+            ->where('anio', $anio)
+            ->delete();
+
+        // ── 3. Insertar el nuevo Top 5 ───────────────────────────────────────
+        foreach ($top5 as $idx => $r) {
+            \App\Models\RankingSemanal::create([
+                'semana'       => $semana,
+                'anio'         => $anio,
+                'fecha_inicio' => $inicioSemana->toDateString(),
+                'fecha_fin'    => $finSemana->toDateString(),
+                'posicion'     => $idx + 1,
+                'user_id'      => $r->user_id,
+                'puntos'       => $r->puntos,
+                'total_ganado' => $r->total_ganado,
+            ]);
+        }
+
+        // ── 4. Mantener solo las últimas 4 semanas ───────────────────────────
+        // Construimos la lista de las 4 semanas más recientes (anio+semana desc)
+        $semanas = \App\Models\RankingSemanal::select('anio', 'semana')
+            ->distinct()
+            ->orderByDesc('anio')
+            ->orderByDesc('semana')
+            ->get();
+
+        if ($semanas->count() > 4) {
+            $aEliminar = $semanas->slice(4); // semanas sobrantes
+            foreach ($aEliminar as $s) {
+                \App\Models\RankingSemanal::where('anio', $s->anio)
+                    ->where('semana', $s->semana)
+                    ->delete();
+            }
+        }
+
+        return redirect()
+            ->route('admin.panel', ['section' => 'rankings'])
+            ->with('success', "Top 5 de la semana {$semana}/{$anio} guardado correctamente.");
     }
 }

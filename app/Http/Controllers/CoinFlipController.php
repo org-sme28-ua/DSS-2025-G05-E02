@@ -6,6 +6,7 @@ use App\Models\Apuesta;
 use App\Models\Billetera;
 use App\Models\Juego;
 use App\Models\Notificacion;
+use App\Models\Ranking;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -68,6 +69,9 @@ class CoinFlipController extends Controller
 
                 $resultSide = random_int(0, 1) === 0 ? 'cara' : 'cruz';
                 $won = $selected === $resultSide;
+                $monto = $amountCents / 100;
+                $cuota = 2.00;
+
                 $balanceAfterCents = $won
                     ? $balanceBeforeCents + $amountCents
                     : $balanceBeforeCents - $amountCents;
@@ -81,35 +85,48 @@ class CoinFlipController extends Controller
                 );
 
                 Apuesta::create([
-                    'user_id' => $user->id,
-                    'juego_id' => $juego->id,
-                    'tipo' => 'cara_cruz',
-                    'descripcion' => 'Apuesta simple a cara o cruz',
-                    'seleccion' => ucfirst($selected),
-                    'resultado' => ucfirst($resultSide),
-                    'monto' => $amountCents / 100,
-                    'cuota' => 2.00,
-                    'estado' => $won ? 'ganada' : 'perdida',
-                    'fecha' => now(),
-                    'balance_antes' => $balanceBeforeCents / 100,
+                    'user_id'         => $user->id,
+                    'juego_id'        => $juego->id,
+                    'tipo'            => 'cara_cruz',
+                    'descripcion'     => 'Apuesta simple a cara o cruz',
+                    'seleccion'       => ucfirst($selected),
+                    'resultado'       => ucfirst($resultSide),
+                    'monto'           => $monto,
+                    'cuota'           => $cuota,
+                    'estado'          => $won ? 'ganada' : 'perdida',
+                    'fecha'           => now(),
+                    'balance_antes'   => $balanceBeforeCents / 100,
                     'balance_despues' => $balanceAfterCents / 100,
-                    'resuelta_at' => now(),
+                    'resuelta_at'     => now(),
                 ]);
+
+                // ── Ranking ──────────────────────────────────────────────────
+                // Ganada: floor(monto × cuota × 10)  → premia la ganancia real
+                // Perdida: floor(monto × 2)           → fidelidad por participar
+                if ($won) {
+                    $ganancia     = $monto;
+                    $nuevosPuntos = (int) floor($monto * $cuota * 10);
+                } else {
+                    $ganancia     = 0;
+                    $nuevosPuntos = (int) floor($monto * 2);
+                }
+                Ranking::actualizarRankingUsuario($user, $ganancia, $nuevosPuntos);
+                // ─────────────────────────────────────────────────────────────
 
                 Notificacion::crearNotificacion(
                     $user->id,
                     $won ? 'Cara o cruz ganada' : 'Cara o cruz perdida',
                     $won
-                        ? 'Acertaste ' . ucfirst($resultSide) . ' y ganaste ' . number_format($amountCents / 100, 2, ',', '.') . ' EUR netos.'
-                        : 'Salió ' . ucfirst($resultSide) . ' y perdiste ' . number_format($amountCents / 100, 2, ',', '.') . ' EUR.',
+                        ? 'Acertaste ' . ucfirst($resultSide) . ' y ganaste ' . number_format($monto, 2, ',', '.') . ' EUR netos.'
+                        : 'Salió ' . ucfirst($resultSide) . ' y perdiste ' . number_format($monto, 2, ',', '.') . ' EUR.',
                     'apuesta'
                 );
 
                 return [
-                    'seleccion' => $selected,
-                    'resultado' => $resultSide,
-                    'won' => $won,
-                    'amount' => $amountCents / 100,
+                    'seleccion'     => $selected,
+                    'resultado'     => $resultSide,
+                    'won'           => $won,
+                    'amount'        => $monto,
                     'balance_after' => $balanceAfterCents / 100,
                 ];
             });

@@ -6,6 +6,7 @@ use App\Models\Apuesta;
 use App\Models\Billetera;
 use App\Models\Juego;
 use App\Models\Notificacion;
+use App\Models\Ranking;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -35,14 +36,14 @@ class PredictionController extends Controller
     {
         $data = $request->validate([
             'descripcion' => ['required', 'string', 'min:8', 'max:255'],
-            'seleccion' => ['required', 'string', 'min:2', 'max:1000'],
-            'amount' => ['required', 'numeric', 'min:1', 'max:999999.99'],
+            'seleccion'   => ['required', 'string', 'min:2', 'max:1000'],
+            'amount'      => ['required', 'numeric', 'min:1', 'max:999999.99'],
         ], [
             'descripcion.required' => 'Describe la predicción que quieres apostar.',
-            'descripcion.min' => 'La predicción debe tener al menos 8 caracteres.',
-            'seleccion.required' => 'Indica cuál es tu resultado esperado.',
-            'amount.required' => 'Indica cuánto quieres apostar.',
-            'amount.min' => 'La apuesta mínima es 1 EUR.',
+            'descripcion.min'      => 'La predicción debe tener al menos 8 caracteres.',
+            'seleccion.required'   => 'Indica cuál es tu resultado esperado.',
+            'amount.required'      => 'Indica cuánto quieres apostar.',
+            'amount.min'           => 'La apuesta mínima es 1 EUR.',
         ]);
 
         $user = Auth::user();
@@ -53,9 +54,9 @@ class PredictionController extends Controller
 
             if (!$wallet) {
                 $wallet = Billetera::create([
-                    'user_id' => $user->id,
-                    'saldoDisponible' => 0,
-                    'moneda' => 'EUR',
+                    'user_id'          => $user->id,
+                    'saldoDisponible'  => 0,
+                    'moneda'           => 'EUR',
                 ]);
             }
 
@@ -74,19 +75,31 @@ class PredictionController extends Controller
                 ['categoria' => 'Predicciones', 'estado' => 'abierta']
             );
 
+            $monto = $amountCents / 100;
+            $cuota = 2.00;
+
             $bet = Apuesta::create([
-                'user_id' => $user->id,
-                'juego_id' => $game->id,
-                'tipo' => 'prediccion',
-                'descripcion' => $data['descripcion'],
-                'seleccion' => $data['seleccion'],
-                'monto' => $amountCents / 100,
-                'cuota' => 2.00,
-                'estado' => 'pendiente',
-                'fecha' => now(),
-                'balance_antes' => $balanceBeforeCents / 100,
+                'user_id'         => $user->id,
+                'juego_id'        => $game->id,
+                'tipo'            => 'prediccion',
+                'descripcion'     => $data['descripcion'],
+                'seleccion'       => $data['seleccion'],
+                'monto'           => $monto,
+                'cuota'           => $cuota,
+                'estado'          => 'pendiente',
+                'fecha'           => now(),
+                'balance_antes'   => $balanceBeforeCents / 100,
                 'balance_despues' => $balanceAfterCents / 100,
             ]);
+
+            // ── Ranking (puntos de participación al enviar) ───────────────────
+            // Las predicciones no se resuelven aquí: el admin las resuelve después
+            // en AdminController::resolvePrediction().
+            // Al crear, solo damos puntos de participación (como las perdidas).
+            // Cuando el admin marque "ganada", se suman los puntos de victoria allí.
+            $nuevosPuntos = (int) floor($monto * 2);   // fidelidad por participar
+            Ranking::actualizarRankingUsuario($user, 0, $nuevosPuntos);
+            // ─────────────────────────────────────────────────────────────────
 
             Notificacion::crearNotificacion(
                 $user->id,
@@ -102,6 +115,7 @@ class PredictionController extends Controller
             return back()->withErrors(['amount' => $result['error']])->withInput();
         }
 
-        return redirect()->route('prediction.index')->with('success', 'Predicción enviada. Queda pendiente de revisión por administración.');
+        return redirect()->route('prediction.index')
+            ->with('success', 'Predicción enviada. Queda pendiente de revisión por administración.');
     }
 }

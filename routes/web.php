@@ -101,7 +101,7 @@ Route::middleware('auth')->group(function () {
         $search = request('search', '');
         $sort   = in_array(request('sort'), ['posicion','puntos','total_ganado','id']) ? request('sort') : 'posicion';
         $dir    = request('dir', 'asc') === 'desc' ? 'desc' : 'asc';
-     
+
         $rankings = \App\Models\Ranking::with('user')
             ->when($search, function ($q) use ($search) {
                 $q->whereHas('user', function ($u) use ($search) {
@@ -112,14 +112,22 @@ Route::middleware('auth')->group(function () {
             ->orderBy($sort, $dir)
             ->paginate(15)
             ->withQueryString();
-     
+
         // Top 3 para el podio (siempre por posición)
         $top3 = \App\Models\Ranking::with('user')
             ->orderBy('posicion')
             ->take(3)
             ->get();
-     
-        return view('rankings', compact('rankings', 'top3'));
+
+        // Histórico semanal (últimas 4 semanas)
+        $semanas = \App\Models\RankingSemanal::with('user')
+            ->orderByDesc('anio')
+            ->orderByDesc('semana')
+            ->orderBy('posicion')
+            ->get()
+            ->groupBy(fn ($r) => $r->anio . '-' . str_pad($r->semana, 2, '0', STR_PAD_LEFT));
+
+        return view('rankings', compact('rankings', 'top3', 'semanas'));
     })->name('private.rankings');
 
 
@@ -224,7 +232,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/rankings', [RankingController::class, 'store'])->name('admin.rankings.store');
         Route::put('/rankings/{ranking}', [RankingController::class, 'update'])->name('admin.rankings.update');
         Route::delete('/rankings/{ranking}', [RankingController::class, 'destroy'])->name('admin.rankings.destroy');
-
+        Route::post('/rankings/top-semanal', [AdminController::class, 'generarTopSemanal'])->name('admin.rankings.top_semanal');
         Route::get('/settings/data', [SettingController::class, 'getData'])->name('admin.settings.data');
         Route::get('/settings/{setting}', [SettingController::class, 'show'])->name('admin.settings.show');
         Route::post('/settings', [SettingController::class, 'store'])->name('admin.settings.store');

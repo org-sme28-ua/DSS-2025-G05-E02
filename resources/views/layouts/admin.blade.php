@@ -473,12 +473,85 @@
           </select>
           <button type="submit" class="btn btn-primary">Buscar</button>
           <a href="{{ $sectionUrl('rankings') }}" class="btn">Limpiar</a>
-          <div style="margin-left:auto;">
+          <div style="margin-left:auto; display:flex; gap:8px;">
+            <form method="POST" action="{{ route('admin.rankings.top_semanal') }}" style="margin:0;">
+              @csrf
+              <button type="submit" class="btn btn-gold"
+                      onclick="return confirm('¿Guardar el Top 5 de esta semana? Sobreescribirá el snapshot de la semana actual si ya existe.')">
+                🏅 Guardar Top 5 semana
+              </button>
+            </form>
             <button type="button" class="btn btn-gold" onclick="document.getElementById('modal-ranking-crear').style.display='flex'">
               + Nueva entrada
             </button>
           </div>
         </form>
+
+        {{-- ── PANEL HISTÓRICO SEMANAL (últimas 4 semanas) ── --}}
+        @php
+            $semanas = \App\Models\RankingSemanal::with('user')
+                ->orderByDesc('anio')
+                ->orderByDesc('semana')
+                ->orderBy('posicion')
+                ->get()
+                ->groupBy(fn ($r) => $r->anio . '-' . str_pad($r->semana, 2, '0', STR_PAD_LEFT));
+        @endphp
+
+        @if ($semanas->isNotEmpty())
+        <section class="panel" style="margin-bottom:18px;">
+          <div class="panel-pad" style="border-bottom:1px solid var(--border); padding-bottom:14px;">
+            <h3 class="panel-title" style="margin:0;">
+              📅 Histórico Top 5 semanal
+              <span style="font-size:12px; font-weight:400; color:var(--text-muted); margin-left:6px;">
+                (últimas {{ $semanas->count() }} semana{{ $semanas->count() > 1 ? 's' : '' }})
+              </span>
+            </h3>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));">
+            @foreach ($semanas as $key => $filas)
+            @php $primera = $filas->first(); @endphp
+            <div style="padding:16px 18px; border-right:1px solid var(--border); border-bottom:1px solid var(--border);">
+
+              {{-- Cabecera de semana --}}
+              <div style="margin-bottom:12px;">
+                <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--gold);">
+                  Semana {{ $primera->semana }} · {{ $primera->anio }}
+                </div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                  {{ $primera->fecha_inicio->format('d/m') }} – {{ $primera->fecha_fin->format('d/m/Y') }}
+                </div>
+              </div>
+
+              {{-- Top 5 --}}
+              @foreach ($filas as $f)
+              <div style="display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,.06);">
+                <div style="width:24px; text-align:center; flex-shrink:0; font-size:15px;">
+                  @if ($f->posicion === 1) 🥇
+                  @elseif ($f->posicion === 2) 🥈
+                  @elseif ($f->posicion === 3) 🥉
+                  @else <strong style="color:var(--text-muted); font-size:12px;">#{{ $f->posicion }}</strong>
+                  @endif
+                </div>
+                <div style="width:26px; height:26px; border-radius:50%; background:var(--gold); color:#3b1212;
+                            display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex-shrink:0;">
+                  {{ strtoupper(substr($f->user->name ?? 'U', 0, 1)) }}
+                </div>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:13px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    {{ $f->user->name ?? '—' }}
+                  </div>
+                  <div style="font-size:11px; color:var(--text-muted);">
+                    {{ number_format($f->puntos) }} pts · {{ number_format($f->total_ganado, 0) }} EUR
+                  </div>
+                </div>
+              </div>
+              @endforeach
+
+            </div>
+            @endforeach
+          </div>
+        </section>
+        @endif
 
         {{-- ── Tabla ── --}}
         <section class="panel" style="border-radius:0 0 var(--radius) var(--radius);margin-top:0;">

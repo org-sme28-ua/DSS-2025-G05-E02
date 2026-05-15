@@ -6,6 +6,7 @@ use App\Models\Apuesta;
 use App\Models\Billetera;
 use App\Models\Juego;
 use App\Models\Notificacion;
+use App\Models\Ranking;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -83,37 +84,53 @@ class RouletteController extends Controller
             );
 
             $colorLabels = ['red' => 'Rojo', 'black' => 'Negro', 'green' => 'Verde'];
+            $monto  = $amountCents / 100;
+            $cuota  = 2.00;
 
             $apuesta = Apuesta::create([
-                'user_id' => $user->id,
-                'juego_id' => $juego->id,
-                'tipo' => 'ruleta',
-                'descripcion' => 'Apuesta simple a color en ruleta',
-                'seleccion' => $selectedColor,
-                'resultado' => $resultColor,
-                'monto' => $amountCents / 100,
-                'cuota' => 2.00,
-                'estado' => $won ? 'ganada' : 'perdida',
-                'fecha' => now(),
-                'balance_antes' => $balanceBeforeCents / 100,
+                'user_id'         => $user->id,
+                'juego_id'        => $juego->id,
+                'tipo'            => 'ruleta',
+                'descripcion'     => 'Apuesta simple a color en ruleta',
+                'seleccion'       => $selectedColor,
+                'resultado'       => $resultColor,
+                'monto'           => $monto,
+                'cuota'           => $cuota,
+                'estado'          => $won ? 'ganada' : 'perdida',
+                'fecha'           => now(),
+                'balance_antes'   => $balanceBeforeCents / 100,
                 'balance_despues' => $balanceAfterCents / 100,
-                'resuelta_at' => now(),
+                'resuelta_at'     => now(),
             ]);
+
+            // ── Ranking ──────────────────────────────────────────────────────
+            // Ganada: floor(monto × cuota × 10)  → premia la ganancia real
+            // Perdida: floor(monto × 2)           → fidelidad por participar
+            if ($won) {
+                $ganancia     = $monto;                          // ganancia neta (1:1)
+                $nuevosPuntos = (int) floor($monto * $cuota * 10);
+            } else {
+                $ganancia     = 0;
+                $nuevosPuntos = (int) floor($monto * 2);
+            }
+            Ranking::actualizarRankingUsuario($user, $ganancia, $nuevosPuntos);
+            // ─────────────────────────────────────────────────────────────────
 
             Notificacion::crearNotificacion(
                 $user->id,
                 $won ? 'Ruleta ganada' : 'Ruleta perdida',
-                'Apostaste a ' . ($colorLabels[$selectedColor] ?? $selectedColor) . ' y salió ' . ($colorLabels[$resultColor] ?? $resultColor) . '.',
+                'Apostaste a ' . ($colorLabels[$selectedColor] ?? $selectedColor)
+                    . ' y salió ' . ($colorLabels[$resultColor] ?? $resultColor) . '.',
                 'apuesta'
             );
 
             return [
-                'apuesta_id' => $apuesta->id,
-                'selected_color' => $selectedColor,
-                'result_color' => $resultColor,
-                'won' => $won,
-                'amount' => $amountCents / 100,
-                'balance_before' => $balanceBeforeCents / 100,
+                'apuesta_id'    => $apuesta->id,
+                'selected_color'=> $selectedColor,
+                'result_color'  => $resultColor,
+                'won'           => $won,
+                'amount'        => $monto,
+                'balance_before'=> $balanceBeforeCents / 100,
                 'balance_after' => $balanceAfterCents / 100,
             ];
         });

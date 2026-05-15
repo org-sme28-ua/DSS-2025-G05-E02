@@ -191,4 +191,92 @@
     @endif
 </div>
 
+{{-- ── HISTÓRICO TOP 5 SEMANAL ── --}}
+@php
+    $semanas = \App\Models\RankingSemanal::with('user')
+        ->orderByDesc('anio')
+        ->orderByDesc('semana')
+        ->orderBy('posicion')
+        ->get()
+        ->groupBy(fn ($r) => $r->anio . '-' . str_pad($r->semana, 2, '0', STR_PAD_LEFT));
+@endphp
+
+@if ($semanas->isNotEmpty())
+<div style="margin-top:32px;">
+
+    <div style="margin-bottom:16px;">
+        <h2 style="margin:0; font-family:'Playfair Display',serif; font-size:26px; color:#fff;">
+            📅 Top 5 por semana
+        </h2>
+        <p style="margin:6px 0 0; color:var(--muted); font-size:13px;">
+            Histórico de los mejores jugadores de las últimas {{ $semanas->count() }} semanas.
+        </p>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
+        @foreach ($semanas as $key => $filas)
+        @php $primera = $filas->first(); @endphp
+
+        <div class="panel" style="padding:0; overflow:hidden;">
+
+            {{-- Cabecera de semana --}}
+            <div style="padding:14px 18px; background:var(--surface-strong); border-bottom:1px solid var(--border);">
+                <div style="font-size:11px; font-weight:700; text-transform:uppercase;
+                            letter-spacing:.1em; color:var(--gold);">
+                    Semana {{ $primera->semana }} · {{ $primera->anio }}
+                </div>
+                <div style="font-size:12px; color:var(--muted); margin-top:3px;">
+                    {{ $primera->fecha_inicio->format('d/m') }}
+                    –
+                    {{ $primera->fecha_fin->format('d/m/Y') }}
+                </div>
+            </div>
+
+            {{-- Filas Top 5 --}}
+            <div style="padding:8px 0;">
+                @foreach ($filas as $f)
+                <div style="display:flex; align-items:center; gap:12px;
+                            padding:10px 18px; border-bottom:1px solid rgba(255,255,255,.05);">
+
+                    {{-- Medalla / número --}}
+                    <div style="width:28px; text-align:center; flex-shrink:0; font-size:18px; line-height:1;">
+                        @if ($f->posicion === 1) 🥇
+                        @elseif ($f->posicion === 2) 🥈
+                        @elseif ($f->posicion === 3) 🥉
+                        @else <strong style="color:var(--muted); font-size:13px;">#{{ $f->posicion }}</strong>
+                        @endif
+                    </div>
+
+                    {{-- Avatar --}}
+                    <div style="width:30px; height:30px; border-radius:50%; background:var(--gold);
+                                color:#4b1717; display:flex; align-items:center; justify-content:center;
+                                font-size:12px; font-weight:800; flex-shrink:0;">
+                        {{ strtoupper(substr($f->user->name ?? 'U', 0, 1)) }}
+                    </div>
+
+                    {{-- Nombre + datos --}}
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:13px; font-weight:700; color:#fff;
+                                    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            {{ $f->user->name ?? '—' }}
+                            @if ($f->user_id === auth()->id())
+                                <span class="badge info" style="font-size:10px; padding:1px 6px; margin-left:4px;">Tú</span>
+                            @endif
+                        </div>
+                        <div style="font-size:11px; color:var(--muted); margin-top:1px;">
+                            {{ number_format($f->puntos) }} pts
+                            · {{ number_format($f->total_ganado, 0) }} EUR
+                        </div>
+                    </div>
+
+                </div>
+                @endforeach
+            </div>
+
+        </div>
+        @endforeach
+    </div>
+</div>
+@endif
+
 @endsection
