@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Route;
 // RUTAS PÚBLICAS
 // ============================================================
 Route::view('/', 'public.home')->name('public.home');
+Route::view('/sobre-nosotros', 'public.about')->name('public.about');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -130,9 +131,6 @@ Route::middleware('auth')->group(function () {
         return view('rankings', compact('rankings', 'top3', 'semanas'));
     })->name('private.rankings');
 
-
-
-
     Route::get('/mis-notificaciones', function () {
         $notificaciones = Notificacion::query()
             ->where('user_id', auth()->id())
@@ -156,8 +154,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/chat', [ChatController::class, 'index'])->name('private.chat');
     Route::post('/chat/start', [ChatController::class, 'start'])->name('private.chat.start');
     Route::get('/chat/{chat}', [ChatController::class, 'showConversation'])->name('private.chat.show');
-    Route::post('/chat/{chat}/mensaje', [ChatController::class, 'sendMessage'])->name('private.chat.message');
-
+    Route::post('/chat/{chat}/mensaje', [ChatController::class, 'sendMessage'])->name('private.chat.message');  
+    Route::post('/amigos/add', [UserController::class, 'addFriendFront'])->name('private.amigos.add');
     Route::view('/configuracion', 'configuracion')->name('private.configuracion');
 
     Route::get('/ruleta', [RouletteController::class, 'index'])->name('roulette.index');
@@ -177,6 +175,7 @@ Route::middleware('auth')->group(function () {
     // ============================================================
     Route::get('/admin', [AdminController::class, 'index'])->name('admin.panel');
     Route::get('/admin/usuarios/{user}/resumen', [AdminController::class, 'userSummary'])->name('admin.users.summary');
+    Route::get('/admin/juegos/{juego}/resumen', [AdminController::class, 'gameSummary'])->name('admin.games.summary');
     Route::post('/admin/apuestas/{apuesta}/resolver', [AdminController::class, 'resolvePrediction'])->name('admin.predictions.resolve');
 
     // ============================================================
@@ -188,7 +187,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/usuarios', [UserController::class, 'crear'])->name('admin.usuarios.store');
         Route::put('/usuarios/{user}', [UserController::class, 'actualizar'])->name('admin.usuarios.update');
         Route::delete('/usuarios/{user}', [UserController::class, 'eliminar'])->name('admin.usuarios.destroy');
-
+        Route::delete('/amigos/{ids}', [UserController::class, 'quitarAmistadAdmin'])->name('admin.amigos.destroy');
         Route::get('/apuestas/data', [ApuestaController::class, 'getData'])->name('admin.apuestas.data');
         Route::get('/apuestas/{apuesta}', [ApuestaController::class, 'show'])->name('admin.apuestas.show');
         Route::post('/apuestas', [ApuestaController::class, 'store'])->name('admin.apuestas.store');
@@ -225,14 +224,13 @@ Route::middleware('auth')->group(function () {
         Route::put('/mensajes/{mensaje}', [MensajeController::class, 'actualizar'])->name('admin.mensajes.update');
         Route::delete('/mensajes/{mensaje}', [MensajeController::class, 'eliminar'])->name('admin.mensajes.destroy');
 
-
-
         Route::get('/rankings/data', [RankingController::class, 'getData'])->name('admin.rankings.data');
         Route::get('/rankings/{ranking}', [RankingController::class, 'show'])->name('admin.rankings.show');
         Route::post('/rankings', [RankingController::class, 'store'])->name('admin.rankings.store');
         Route::put('/rankings/{ranking}', [RankingController::class, 'update'])->name('admin.rankings.update');
         Route::delete('/rankings/{ranking}', [RankingController::class, 'destroy'])->name('admin.rankings.destroy');
         Route::post('/rankings/top-semanal', [AdminController::class, 'generarTopSemanal'])->name('admin.rankings.top_semanal');
+        
         Route::get('/settings/data', [SettingController::class, 'getData'])->name('admin.settings.data');
         Route::get('/settings/{setting}', [SettingController::class, 'show'])->name('admin.settings.show');
         Route::post('/settings', [SettingController::class, 'store'])->name('admin.settings.store');

@@ -12,26 +12,25 @@ class ParametroGananciaController extends Controller
         $query = ParametroGanancia::with('juego');
 
         if ($request->filled('search')) {
-            $search = $request->search;
-
-            $query->where('juego_id', 'like', "%{$search}%")
-                ->orWhereHas('juego', function ($q) use ($search) {
-                    $q->where('nombre', 'like', "%{$search}%");
-                });
+            $search = '%' . $request->search . '%';
+            $query->where('juego_id', 'like', $search)
+                ->orWhereHas('juego', fn ($q) => $q->where('nombre', 'like', $search));
         }
 
-        $sort = $request->get('sort', 'id');
-        $dir = $request->get('dir', 'asc');
-        $per = (int) $request->get('per', 6);
+        if ($request->filled('juego_id')) {
+            $query->where('juego_id', $request->juego_id);
+        }
 
-        return response()->json(
-            $query->orderBy($sort, $dir)->paginate($per)
-        );
+        $allowedSorts = ['id', 'juego_id', 'multiplicacion_por_juego', 'bonus_por_racha', 'created_at'];
+        $sort = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'id';
+        $dir = $request->get('dir') === 'desc' ? 'desc' : 'asc';
+
+        return response()->json($query->orderBy($sort, $dir)->paginate((int) $request->get('per', 10)));
     }
 
     public function show($id)
     {
-        return response()->json(ParametroGanancia::findOrFail($id));
+        return response()->json(ParametroGanancia::with('juego')->findOrFail($id));
     }
 
     public function store(Request $request)
@@ -44,11 +43,11 @@ class ParametroGananciaController extends Controller
 
         $parametro = ParametroGanancia::create($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $parametro,
-            'message' => 'Parámetro creado correctamente'
-        ], 201);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $parametro, 'message' => 'Parámetro creado correctamente'], 201);
+        }
+
+        return back()->with('success', 'Parámetro creado correctamente.');
     }
 
     public function update(Request $request, $id)
@@ -63,21 +62,22 @@ class ParametroGananciaController extends Controller
 
         $parametro->update($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $parametro,
-            'message' => 'Parámetro actualizado correctamente'
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $parametro->fresh(), 'message' => 'Parámetro actualizado correctamente']);
+        }
+
+        return back()->with('success', 'Parámetro actualizado correctamente.');
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $parametro = ParametroGanancia::findOrFail($id);
         $parametro->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Parámetro eliminado correctamente'
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Parámetro eliminado correctamente']);
+        }
+
+        return back()->with('success', 'Parámetro eliminado correctamente.');
     }
 }

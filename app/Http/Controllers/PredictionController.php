@@ -7,9 +7,9 @@ use App\Models\Billetera;
 use App\Models\Juego;
 use App\Models\Notificacion;
 use App\Models\Ranking;
+use App\Services\ApuestaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class PredictionController extends Controller
 {
@@ -32,7 +32,7 @@ class PredictionController extends Controller
         return view('prediction.index', compact('wallet', 'bets'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request, ApuestaService $apuestaService)
     {
         $data = $request->validate([
             'descripcion' => ['required', 'string', 'min:8', 'max:255'],
@@ -47,72 +47,30 @@ class PredictionController extends Controller
         ]);
 
         $user = Auth::user();
-        $amountCents = (int) round(((float) $data['amount']) * 100);
+        $amount = round((float) $data['amount'], 2);
 
-        $result = DB::transaction(function () use ($user, $data, $amountCents) {
-            $wallet = Billetera::where('user_id', $user->id)->lockForUpdate()->first();
-
-            if (!$wallet) {
-                $wallet = Billetera::create([
-                    'user_id'          => $user->id,
-                    'saldoDisponible'  => 0,
-                    'moneda'           => 'EUR',
-                ]);
-            }
-
-            $balanceBeforeCents = (int) round(((float) $wallet->saldoDisponible) * 100);
-
-            if ($balanceBeforeCents < $amountCents) {
-                return ['error' => 'Saldo insuficiente para crear esta predicción.'];
-            }
-
-            $balanceAfterCents = $balanceBeforeCents - $amountCents;
-            $wallet->saldoDisponible = $balanceAfterCents / 100;
-            $wallet->save();
-
-            $game = Juego::firstOrCreate(
-                ['nombre' => 'Predicción'],
-                ['categoria' => 'Predicciones', 'estado' => 'abierta']
-            );
-
-            $monto = $amountCents / 100;
-            $cuota = 2.00;
-
-            $bet = Apuesta::create([
-                'user_id'         => $user->id,
-                'juego_id'        => $game->id,
-                'tipo'            => 'prediccion',
-                'descripcion'     => $data['descripcion'],
-                'seleccion'       => $data['seleccion'],
-                'monto'           => $monto,
-                'cuota'           => $cuota,
-                'estado'          => 'pendiente',
-                'fecha'           => now(),
-                'balance_antes'   => $balanceBeforeCents / 100,
-                'balance_despues' => $balanceAfterCents / 100,
+        try {
+            // Utilizamos el servicio para procesar la apuesta de forma centralizada
+            $apuestaService->procesarApuesta($user, [
+                'juego_nombre' => 'Predicción',
+                'juego_categoria' => 'Predicciones',
+                'tipo' => 'prediccion',
+                'descripcion' => $data['descripcion'],
+                'seleccion' => $data['seleccion'],
+                'monto' => $amount,
+                'cuota' => 2.00,
+                'estado' => 'pendiente',
+                'notificacion_titulo' => 'Predicción enviada',
+                'notificacion_mensaje' => 'Tu predicción se ha enviado al panel de administración y queda pendiente de revisión.',
             ]);
 
-            // ── Ranking (puntos de participación al enviar) ───────────────────
-            // Las predicciones no se resuelven aquí: el admin las resuelve después
-            // en AdminController::resolvePrediction().
-            // Al crear, solo damos puntos de participación (como las perdidas).
-            // Cuando el admin marque "ganada", se suman los puntos de victoria allí.
-            $nuevosPuntos = (int) floor($monto * 2);   // fidelidad por participar
+            // Puntos de participación (Fidelidad)
+            // Se otorgan puntos por el hecho de participar, independientemente de que el admin la resuelva luego.
+            $nuevosPuntos = (int) floor($amount * 2);
             Ranking::actualizarRankingUsuario($user, 0, $nuevosPuntos);
-            // ─────────────────────────────────────────────────────────────────
 
-            Notificacion::crearNotificacion(
-                $user->id,
-                'Predicción enviada',
-                'Tu predicción se ha enviado al panel de administración y queda pendiente de revisión.',
-                'apuesta'
-            );
-
-            return ['bet' => $bet];
-        });
-
-        if (isset($result['error'])) {
-            return back()->withErrors(['amount' => $result['error']])->withInput();
+        } catch (\Throwable $e) {
+            return back()->withErrors(['amount' => $e->getMessage()])->withInput();
         }
 
         return redirect()->route('prediction.index')

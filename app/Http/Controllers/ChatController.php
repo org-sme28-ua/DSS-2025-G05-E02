@@ -107,10 +107,13 @@ class ChatController extends Controller
             ->with('success', 'Mensaje enviado.');
     }
 
+
+    
     private function renderChatPage(Request $request, ?Chat $activeChat = null)
     {
         $user = $request->user();
 
+        // Cargar los chats en los que participa el usuario
         $chats = Chat::query()
             ->forUser($user->id)
             ->with(['userOne', 'userTwo', 'ultimoMensaje.emisor'])
@@ -118,6 +121,7 @@ class ChatController extends Controller
             ->orderByRaw('COALESCE(last_message_at, updated_at) DESC')
             ->get();
 
+        // Contar mensajes no leídos por cada chat
         $unreadByChat = Mensaje::query()
             ->whereIn('chat_id', $chats->pluck('id'))
             ->where('receptor_id', $user->id)
@@ -126,6 +130,7 @@ class ChatController extends Controller
             ->groupBy('chat_id')
             ->pluck('total', 'chat_id');
 
+        // Asignar el "otro usuario" y el contador de no leídos a cada objeto chat
         $chats->each(function (Chat $chat) use ($user, $unreadByChat) {
             $chat->setAttribute('other_user', $chat->otherParticipant($user));
             $chat->setAttribute('unread_count', (int) ($unreadByChat[$chat->id] ?? 0));
@@ -136,33 +141,23 @@ class ChatController extends Controller
             $activeChat->setAttribute('other_user', $activeChat->otherParticipant($user));
         }
 
+        // Obtener los mensajes del chat activo
         $messages = $activeChat
             ? $activeChat->mensajes()->with(['emisor', 'receptor'])->orderBy('created_at')->get()
             : collect();
 
-        $existingChatUserIds = $chats
-            ->flatMap(fn (Chat $chat) => [$chat->user_one_id, $chat->user_two_id])
-            ->filter()
-            ->reject(fn ($id) => (int) $id === (int) $user->id)
-            ->unique()
-            ->values();
-
-        $suggestedUsers = User::query()
-            ->where('id', '!=', $user->id)
-            ->when($existingChatUserIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $existingChatUserIds))
-            ->orderByRaw("role = 'admin' DESC")
-            ->orderBy('name')
-            ->take(4)
-            ->get(['id', 'name', 'email', 'role']);
+        // CREAMOS LA VARIABLE $amigos (sin el 'role' para evitar fallos de SQL)
+        $amigos = $user->amigos()->orderBy('name')->get(['users.id', 'name', 'email']);
 
         return view('chat', [
             'chats' => $chats,
             'activeChat' => $activeChat,
             'messages' => $messages,
-            'suggestedUsers' => $suggestedUsers,
+            'amigos' => $amigos,
         ]);
     }
 
+    
     // ============================================================
     // API del panel de administración
     // ============================================================
@@ -215,16 +210,21 @@ class ChatController extends Controller
         ]);
 
         $data['user_one_id'] = $data['user_one_id'] ?? $data['user_id'];
-        $data['activo'] = $data['activo'] ?? true;
+        $data['user_two_id'] = $data['user_two_id'] ?? $data['user_id'];
+        $data['activo'] = (bool) ($data['activo'] ?? true);
         $data['nombre'] = $data['nombre'] ?? 'Chat privado';
 
         $chat = Chat::create($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $chat,
-            'message' => 'Chat creado correctamente',
-        ], 201);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'data' => $chat,
+                'message' => 'Chat creado correctamente',
+            ], 201);
+        }
+
+        return back()->with('success', 'Chat creado correctamente.');
     }
 
     public function update(Request $request, $id)
@@ -232,7 +232,7 @@ class ChatController extends Controller
         $chat = Chat::findOrFail($id);
 
         $data = $request->validate([
-            'nombre' => ['sometimes', 'string', 'max:255'],
+            'nombre' => ['sometimes', 'nullable', 'string', 'max:255'],
             'activo' => ['sometimes', 'boolean'],
             'user_one_id' => ['sometimes', 'nullable', 'exists:users,id'],
             'user_two_id' => ['sometimes', 'nullable', 'exists:users,id', 'different:user_one_id'],
@@ -241,21 +241,29 @@ class ChatController extends Controller
 
         $chat->update($data);
 
-        return response()->json([
-            'success' => true,
-            'data' => $chat,
-            'message' => 'Chat actualizado correctamente',
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'data' => $chat->fresh(),
+                'message' => 'Chat actualizado correctamente',
+            ]);
+        }
+
+        return back()->with('success', 'Chat actualizado correctamente.');
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $chat = Chat::findOrFail($id);
         $chat->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Chat eliminado correctamente',
-        ]);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Chat eliminado correctamente',
+            ]);
+        }
+
+        return back()->with('success', 'Chat eliminado correctamente.');
     }
 }

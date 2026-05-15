@@ -17,38 +17,22 @@ class ApuestaController extends Controller
                 $q->where('descripcion', 'like', $search)
                     ->orWhere('seleccion', 'like', $search)
                     ->orWhere('resultado', 'like', $search)
-                    ->orWhereHas('user', function ($uq) use ($search) {
-                        $uq->where('name', 'like', $search)->orWhere('email', 'like', $search);
-                    })
-                    ->orWhereHas('juego', function ($jq) use ($search) {
-                        $jq->where('nombre', 'like', $search);
-                    });
+                    ->orWhereHas('user', fn ($uq) => $uq->where('name', 'like', $search)->orWhere('email', 'like', $search))
+                    ->orWhereHas('juego', fn ($jq) => $jq->where('nombre', 'like', $search));
             });
         }
 
-        if ($request->filled('estado')) {
-            $query->where('estado', $request->estado);
-        }
-
-        if ($request->filled('tipo')) {
-            $query->where('tipo', $request->tipo);
-        }
-
-        if ($request->filled('user_id')) {
-            $query->where('user_id', $request->user_id);
-        }
-
-        if ($request->filled('juego_id')) {
-            $query->where('juego_id', $request->juego_id);
+        foreach (['estado', 'tipo', 'user_id', 'juego_id'] as $filter) {
+            if ($request->filled($filter)) {
+                $query->where($filter, $request->get($filter));
+            }
         }
 
         $allowedSorts = ['id', 'user_id', 'juego_id', 'tipo', 'monto', 'cuota', 'estado', 'fecha', 'created_at'];
         $sort = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'id';
         $dir = $request->get('dir') === 'desc' ? 'desc' : 'asc';
 
-        $query->orderBy($sort, $dir);
-
-        return response()->json($query->paginate((int) $request->get('per', 10)));
+        return response()->json($query->orderBy($sort, $dir)->paginate((int) $request->get('per', 10)));
     }
 
     public function show($id)
@@ -76,10 +60,20 @@ class ApuestaController extends Controller
         ]);
 
         $data['tipo'] = $data['tipo'] ?? 'general';
-
         $apuesta = Apuesta::create($data);
 
-        return response()->json(['success' => true, 'data' => $apuesta, 'message' => 'Apuesta creada correctamente'], 201);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $apuesta, 'message' => 'Apuesta creada correctamente'], 201);
+        }
+
+        return back()->with('success', 'Apuesta creada correctamente.');
+    }
+
+    public function crearApuestaDesdeServicio(array $data): Apuesta
+    {
+        $data['tipo'] = $data['tipo'] ?? 'general';
+
+        return Apuesta::create($data);
     }
 
     public function update(Request $request, $id)
@@ -105,13 +99,21 @@ class ApuestaController extends Controller
 
         $apuesta->update($data);
 
-        return response()->json(['success' => true, 'data' => $apuesta, 'message' => 'Apuesta actualizada correctamente']);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'data' => $apuesta->fresh(), 'message' => 'Apuesta actualizada correctamente']);
+        }
+
+        return back()->with('success', 'Apuesta actualizada correctamente.');
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         Apuesta::findOrFail($id)->delete();
 
-        return response()->json(['success' => true, 'message' => 'Apuesta eliminada correctamente']);
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => 'Apuesta eliminada correctamente']);
+        }
+
+        return back()->with('success', 'Apuesta eliminada correctamente.');
     }
 }

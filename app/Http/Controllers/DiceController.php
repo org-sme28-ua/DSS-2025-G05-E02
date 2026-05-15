@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Apuesta;
 use App\Models\Billetera;
 use App\Models\Juego;
 use App\Models\Notificacion;
 use App\Models\Ranking;
+use App\Services\ApuestaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class DiceController extends Controller
@@ -32,7 +31,7 @@ class DiceController extends Controller
         return view('games.dice', compact('wallet', 'lastBets'));
     }
 
-    public function play(Request $request): RedirectResponse
+    public function play(Request $request, ApuestaService $apuestaService): RedirectResponse
     {
         $validated = $request->validate([
             'seleccion' => ['required', 'in:bajo,alto'],
@@ -47,97 +46,53 @@ class DiceController extends Controller
 
         $user = auth()->user();
         $selected = $validated['seleccion'];
-        $amountCents = (int) round(((float) $validated['amount']) * 100);
+        $amount = round((float) $validated['amount'], 2);
+        
+        // Lógica del juego: Tirada de dados
+        $roll = random_int(1, 6);
+        $resultBand = $roll <= 3 ? 'bajo' : 'alto';
+        $won = $selected === $resultBand;
 
         try {
-            $result = DB::transaction(function () use ($user, $selected, $amountCents) {
-                $wallet = Billetera::firstOrCreate(
-                    ['user_id' => $user->id],
-                    ['saldoDisponible' => 0, 'moneda' => 'EUR']
-                );
+            // Utilizamos el servicio para procesar la transacción de forma segura
+            $result = $apuestaService->procesarApuesta($user, [
+                'juego_nombre' => 'Dados',
+                'juego_categoria' => 'Azar simple',
+                'tipo' => 'dados',
+                'descripcion' => 'Apuesta a dado bajo (1-3) o alto (4-6)',
+                'seleccion' => $selected === 'bajo' ? 'Bajo (1-3)' : 'Alto (4-6)',
+                'resultado' => 'Dado ' . $roll . ' - ' . ucfirst($resultBand),
+                'monto' => $amount,
+                'cuota' => 2.00,
+                'estado' => $won ? 'ganada' : 'perdida',
+                'notificacion_titulo' => $won ? 'Dados ganados' : 'Dados perdidos',
+                'notificacion_mensaje' => $won
+                    ? 'Salió ' . $roll . ' y acertaste. Ganaste ' . number_format($amount, 2, ',', '.') . ' EUR netos.'
+                    : 'Salió ' . $roll . ' y perdiste ' . number_format($amount, 2, ',', '.') . ' EUR.',
+            ]);
 
-                $wallet = Billetera::whereKey($wallet->id)->lockForUpdate()->firstOrFail();
-                $balanceBeforeCents = (int) round(((float) $wallet->saldoDisponible) * 100);
+            // Actualización del Ranking (Tu lógica de puntos)
+            if ($won) {
+                $ganancia = $amount;
+                $nuevosPuntos = (int) floor($amount * 2.00 * 10);
+            } else {
+                $ganancia = 0;
+                $nuevosPuntos = (int) floor($amount * 2);
+            }
+            Ranking::actualizarRankingUsuario($user, $ganancia, $nuevosPuntos);
 
-                if ($amountCents <= 0) {
-                    throw new \RuntimeException('La apuesta debe ser mayor que 0.');
-                }
-
-                if ($balanceBeforeCents < $amountCents) {
-                    throw new \RuntimeException('Saldo insuficiente para hacer esa apuesta.');
-                }
-
-                $roll = random_int(1, 6);
-                $resultBand = $roll <= 3 ? 'bajo' : 'alto';
-                $won = $selected === $resultBand;
-                $monto = $amountCents / 100;
-                $cuota = 2.00;
-
-                $balanceAfterCents = $won
-                    ? $balanceBeforeCents + $amountCents
-                    : $balanceBeforeCents - $amountCents;
-
-                $wallet->saldoDisponible = $balanceAfterCents / 100;
-                $wallet->save();
-
-                $juego = Juego::firstOrCreate(
-                    ['nombre' => 'Dados'],
-                    ['categoria' => 'Azar simple', 'estado' => 'abierta']
-                );
-
-                Apuesta::create([
-                    'user_id'         => $user->id,
-                    'juego_id'        => $juego->id,
-                    'tipo'            => 'dados',
-                    'descripcion'     => 'Apuesta a dado bajo (1-3) o alto (4-6)',
-                    'seleccion'       => $selected === 'bajo' ? 'Bajo (1-3)' : 'Alto (4-6)',
-                    'resultado'       => 'Dado ' . $roll . ' - ' . ucfirst($resultBand),
-                    'monto'           => $monto,
-                    'cuota'           => $cuota,
-                    'estado'          => $won ? 'ganada' : 'perdida',
-                    'fecha'           => now(),
-                    'balance_antes'   => $balanceBeforeCents / 100,
-                    'balance_despues' => $balanceAfterCents / 100,
-                    'resuelta_at'     => now(),
-                ]);
-
-                // ── Ranking ──────────────────────────────────────────────────
-                // Ganada: floor(monto × cuota × 10)  → premia la ganancia real
-                // Perdida: floor(monto × 2)           → fidelidad por participar
-                if ($won) {
-                    $ganancia     = $monto;
-                    $nuevosPuntos = (int) floor($monto * $cuota * 10);
-                } else {
-                    $ganancia     = 0;
-                    $nuevosPuntos = (int) floor($monto * 2);
-                }
-                Ranking::actualizarRankingUsuario($user, $ganancia, $nuevosPuntos);
-                // ─────────────────────────────────────────────────────────────
-
-                Notificacion::crearNotificacion(
-                    $user->id,
-                    $won ? 'Dados ganados' : 'Dados perdidos',
-                    $won
-                        ? 'Salió ' . $roll . ' y acertaste. Ganaste ' . number_format($monto, 2, ',', '.') . ' EUR netos.'
-                        : 'Salió ' . $roll . ' y perdiste ' . number_format($monto, 2, ',', '.') . ' EUR.',
-                    'apuesta'
-                );
-
-                return [
-                    'seleccion'     => $selected,
-                    'roll'          => $roll,
-                    'resultado'     => $resultBand,
-                    'won'           => $won,
-                    'amount'        => $monto,
-                    'balance_after' => $balanceAfterCents / 100,
-                ];
-            });
         } catch (\Throwable $e) {
             return back()->withErrors(['amount' => $e->getMessage()])->withInput();
         }
 
         return redirect()
             ->route('dice.index')
-            ->with('dice_result', $result);
+            ->with('dice_result', array_merge($result, [
+                'seleccion' => $selected,
+                'roll' => $roll,
+                'resultado' => $resultBand,
+                'won' => $won,
+                'amount' => $amount,
+            ]));
     }
 }
